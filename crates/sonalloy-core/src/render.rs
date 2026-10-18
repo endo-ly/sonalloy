@@ -622,11 +622,12 @@ pub fn render_instrument_with_input_and_trace(
                 .ok_or(RenderError::FrameCountOverflow)?;
         }
         for event in events {
-            if event.absolute_frame < trace_frames
-                && let Some(frame) = event.absolute_frame.checked_add(1)
-                && frame <= trace_frames
-            {
-                boundaries.push(frame);
+            if event.absolute_frame < trace_frames {
+                if let Some(frame) = event.absolute_frame.checked_add(1) {
+                    if frame <= trace_frames {
+                        boundaries.push(frame);
+                    }
+                }
             }
         }
         boundaries.push(trace_frames);

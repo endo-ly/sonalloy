@@ -556,10 +556,10 @@ fn render_score_parts(
     let prerender_order = performance::prerender_order(demo, &required_parts);
     let mut remaining_input_uses = vec![0; demo.parts.len()];
     for (index, source_index) in demo.audio_dependencies.iter().enumerate() {
-        if required_parts[index]
-            && let Some(source_index) = source_index
-        {
-            remaining_input_uses[*source_index] += 1;
+        if required_parts[index] {
+            if let Some(source_index) = source_index {
+                remaining_input_uses[*source_index] += 1;
+            }
         }
     }
     for index in &prerender_order {
@@ -585,10 +585,10 @@ fn render_score_parts(
         {
             continue;
         }
-        if let Some(source_index) = demo.audio_dependencies[index]
-            && prepared_parts.inputs[source_index].is_none()
-        {
-            ensure_prepared_part_audio(demo, source_index, &mut prepared_parts)?;
+        if let Some(source_index) = demo.audio_dependencies[index] {
+            if prepared_parts.inputs[source_index].is_none() {
+                ensure_prepared_part_audio(demo, source_index, &mut prepared_parts)?;
+            }
         }
         let (audio, traces) = render_score_part_audio(
             demo,
@@ -1159,20 +1159,20 @@ fn render_score_mix(
 ) -> Result<ScoreMixRender, CliFailure> {
     let sample_rate = f64::from(args.sample_rate);
     let output_offset = score_output_offset_frames(demo, sample_rate)?;
-    if let Some(stems_dir) = &args.stems_dir
-        && let Err(error) = std::fs::create_dir_all(stems_dir)
-    {
-        return Err(CliFailure {
-            code: 4,
-            diagnostics: vec![
-                Diagnostic::error(
-                    DiagnosticCode::WavOutputError,
-                    "could not create stems directory",
-                )
-                .with_path(stems_dir.to_string_lossy())
-                .with_detail(error.to_string()),
-            ],
-        });
+    if let Some(stems_dir) = &args.stems_dir {
+        if let Err(error) = std::fs::create_dir_all(stems_dir) {
+            return Err(CliFailure {
+                code: 4,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::WavOutputError,
+                        "could not create stems directory",
+                    )
+                    .with_path(stems_dir.to_string_lossy())
+                    .with_detail(error.to_string()),
+                ],
+            });
+        }
     }
 
     let trace_requests = score_trace_requests(demo, args)?;
@@ -1197,13 +1197,17 @@ fn render_score_mix(
                 return Ok(());
             }
             let output_audio = trim_rendered_audio(audio, output_offset);
-            let stem = if output_selected && let Some(stems_dir) = &args.stems_dir {
-                let stem_path = stems_dir.join(format!("{}.wav", part.definition.id));
-                write_wav(&stem_path, &output_audio).map_err(|error| CliFailure {
-                    code: 4,
-                    diagnostics: vec![error],
-                })?;
-                Some(stem_path.to_string_lossy().into_owned())
+            let stem = if output_selected {
+                if let Some(stems_dir) = &args.stems_dir {
+                    let stem_path = stems_dir.join(format!("{}.wav", part.definition.id));
+                    write_wav(&stem_path, &output_audio).map_err(|error| CliFailure {
+                        code: 4,
+                        diagnostics: vec![error],
+                    })?;
+                    Some(stem_path.to_string_lossy().into_owned())
+                } else {
+                    None
+                }
             } else {
                 None
             };
@@ -1768,13 +1772,13 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
     let (mix_audio, part_reports, part_section_levels) =
         render_score_mix(&demo, args, tail_frames)?;
     // Persist a requested premaster before any mastering or FFmpeg analysis can fail.
-    if let Some(path) = &args.premaster_output
-        && let Err(error) = write_wav(path, &mix_audio)
-    {
-        return Err(CliFailure {
-            code: 4,
-            diagnostics: vec![error],
-        });
+    if let Some(path) = &args.premaster_output {
+        if let Err(error) = write_wav(path, &mix_audio) {
+            return Err(CliFailure {
+                code: 4,
+                diagnostics: vec![error],
+            });
+        }
     }
     let mix_analysis = if args.analyze {
         Some(analyze_audio(&mix_audio, None)?)
@@ -1855,10 +1859,12 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
         }
     }
     if let (Some(master), Some(measurement)) = (score_master, measurements.mp3_measurement.as_ref())
-        && let Some(mp3_true_peak_db) = measurement.true_peak_db
-        && let Some(warning) = mp3_true_peak_warning(mp3_true_peak_db, master.true_peak_db)
     {
-        diagnostics.push(warning);
+        if let Some(mp3_true_peak_db) = measurement.true_peak_db {
+            if let Some(warning) = mp3_true_peak_warning(mp3_true_peak_db, master.true_peak_db) {
+                diagnostics.push(warning);
+            }
+        }
     }
     let report = ScoreRenderReport {
         status: "ok",
@@ -2015,36 +2021,36 @@ fn prefix_part_failure(
             let audio_frame = process_frame.saturating_sub(
                 u64::try_from(part.instrument.reported_latency_frames).unwrap_or(u64::MAX),
             );
-            if let Some(render_start_frame) = render_start_frame
-                && let Some(score_frame) = render_start_frame.checked_add(audio_frame)
-            {
-                context.block_start_frame = Some(score_frame);
-                #[allow(clippy::cast_precision_loss)]
-                {
-                    context.time_seconds = Some(score_frame as f64 / sample_rate);
-                }
-                context.tail = Some(score_end_frame.is_some_and(|end| score_frame >= end));
-                if let Some((section_index, section)) =
-                    demo.score.sections.iter().enumerate().find(|(_, section)| {
-                        let start = crate::musical_time::tick_to_frame(
-                            section.start_tick,
-                            demo.score.ticks_per_beat,
-                            &tempo_changes,
-                            sample_rate,
-                        )
-                        .unwrap_or(u64::MAX);
-                        let end = crate::musical_time::tick_to_frame(
-                            section.end_tick,
-                            demo.score.ticks_per_beat,
-                            &tempo_changes,
-                            sample_rate,
-                        )
-                        .unwrap_or(0);
-                        score_frame >= start && score_frame < end
-                    })
-                {
-                    context.section = Some(section.section.clone());
-                    context.occurrence = Some(section_index + 1);
+            if let Some(render_start_frame) = render_start_frame {
+                if let Some(score_frame) = render_start_frame.checked_add(audio_frame) {
+                    context.block_start_frame = Some(score_frame);
+                    #[allow(clippy::cast_precision_loss)]
+                    {
+                        context.time_seconds = Some(score_frame as f64 / sample_rate);
+                    }
+                    context.tail = Some(score_end_frame.is_some_and(|end| score_frame >= end));
+                    if let Some((section_index, section)) =
+                        demo.score.sections.iter().enumerate().find(|(_, section)| {
+                            let start = crate::musical_time::tick_to_frame(
+                                section.start_tick,
+                                demo.score.ticks_per_beat,
+                                &tempo_changes,
+                                sample_rate,
+                            )
+                            .unwrap_or(u64::MAX);
+                            let end = crate::musical_time::tick_to_frame(
+                                section.end_tick,
+                                demo.score.ticks_per_beat,
+                                &tempo_changes,
+                                sample_rate,
+                            )
+                            .unwrap_or(0);
+                            score_frame >= start && score_frame < end
+                        })
+                    {
+                        context.section = Some(section.section.clone());
+                        context.occurrence = Some(section_index + 1);
+                    }
                 }
             }
         }

@@ -254,10 +254,10 @@ impl RuntimeGeneration {
                 let Some((note_id, note_number, velocity, state)) = voice.trace_identity() else {
                     continue;
                 };
-                if let Some(layer_index) = layer_index
-                    && !voice.trace_layer_active(layer_index)
-                {
-                    continue;
+                if let Some(layer_index) = layer_index {
+                    if !voice.trace_layer_active(layer_index) {
+                        continue;
+                    }
                 }
                 let trace_state = match state {
                     VoiceState::Active => TraceVoiceState::Active,
@@ -1100,16 +1100,16 @@ impl RuntimeGeneration {
             {
                 event_index += 1;
             }
-            if event_start != event_index
-                && let Err(error) = self.apply_events_at(
+            if event_start != event_index {
+                if let Err(error) = self.apply_events_at(
                     &block.events[event_start..event_index],
                     block.context.absolute_frame + cursor as u64,
                     accept_note_ons,
                     accept_parameter_changes,
-                )
-            {
-                clear_output(&mut *block.output, block.frames);
-                return Err(error);
+                ) {
+                    clear_output(&mut *block.output, block.frames);
+                    return Err(error);
+                }
             }
             let end = match self.next_span_end(block, cursor, event_index) {
                 Ok(end) => end,

@@ -192,21 +192,22 @@ fn parse_short_term(text: &str) -> Vec<ShortTermLoudness> {
                 .next()
                 .and_then(|value| value.parse::<f64>().ok());
         }
-        if let Some((_, value)) = line.split_once("lavfi.r128.S=")
-            && let Some(time) = timestamp
-            // Metadata timestamps mark the START of a 100 ms scanner frame.
-            && time + 0.100_001 >= next_end
-        {
-            // The scanner's formatted zero-energy sentinel is not a measured LUFS value.
-            let lufs = (value.trim() != "-120.691")
-                .then(|| value.trim().parse::<f64>().ok())
-                .flatten()
-                .filter(|value| value.is_finite());
-            result.push(ShortTermLoudness {
-                time_seconds: next_end,
-                short_term_lufs: lufs,
-            });
-            next_end += 3.0;
+        if let Some((_, value)) = line.split_once("lavfi.r128.S=") {
+            if let Some(time) = timestamp {
+                // Metadata timestamps mark the START of a 100 ms scanner frame.
+                if time + 0.100_001 >= next_end {
+                    // The scanner's formatted zero-energy sentinel is not a measured LUFS value.
+                    let lufs = (value.trim() != "-120.691")
+                        .then(|| value.trim().parse::<f64>().ok())
+                        .flatten()
+                        .filter(|value| value.is_finite());
+                    result.push(ShortTermLoudness {
+                        time_seconds: next_end,
+                        short_term_lufs: lufs,
+                    });
+                    next_end += 3.0;
+                }
+            }
         }
     }
     result
@@ -218,30 +219,32 @@ fn parse_measurement(text: &str) -> Result<LoudnessMeasurement, FfmpegError> {
         .filter(|(_, character)| *character == '{')
     {
         let mut deserializer = serde_json::Deserializer::from_str(&text[index..]);
-        if let Ok(value) = Value::deserialize(&mut deserializer)
-            && value.get("input_i").is_some()
-        {
-            let field = |name| -> Result<Option<f64>, FfmpegError> {
-                let number = value
-                    .get(name)
-                    .and_then(|value| {
-                        value
-                            .as_f64()
-                            .or_else(|| value.as_str().and_then(|value| value.parse::<f64>().ok()))
-                    })
-                    .ok_or_else(|| {
-                        ffmpeg_error(format!("ffmpeg loudness report contains no numeric {name}"))
-                    })?;
-                Ok(number.is_finite().then_some(number))
-            };
-            let integrated_lufs = field("input_i")?;
-            let lra = field("input_lra")?;
-            return Ok(LoudnessMeasurement {
-                integrated_lufs,
-                true_peak_db: field("input_tp")?,
-                // LRA is not defined when integrated loudness cannot be measured.
-                loudness_range_lu: integrated_lufs.and(lra),
-            });
+        if let Ok(value) = Value::deserialize(&mut deserializer) {
+            if value.get("input_i").is_some() {
+                let field = |name| -> Result<Option<f64>, FfmpegError> {
+                    let number = value
+                        .get(name)
+                        .and_then(|value| {
+                            value.as_f64().or_else(|| {
+                                value.as_str().and_then(|value| value.parse::<f64>().ok())
+                            })
+                        })
+                        .ok_or_else(|| {
+                            ffmpeg_error(format!(
+                                "ffmpeg loudness report contains no numeric {name}"
+                            ))
+                        })?;
+                    Ok(number.is_finite().then_some(number))
+                };
+                let integrated_lufs = field("input_i")?;
+                let lra = field("input_lra")?;
+                return Ok(LoudnessMeasurement {
+                    integrated_lufs,
+                    true_peak_db: field("input_tp")?,
+                    // LRA is not defined when integrated loudness cannot be measured.
+                    loudness_range_lu: integrated_lufs.and(lra),
+                });
+            }
         }
     }
     Err(ffmpeg_error("ffmpeg did not emit a loudness JSON report"))

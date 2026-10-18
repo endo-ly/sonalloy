@@ -574,10 +574,10 @@ fn processor_chain_latency(processors: &[CompiledProcessor]) -> usize {
 fn compile_used_voice_sources(routes: &[CompiledRoute], source_count: usize) -> Box<[bool]> {
     let mut used = vec![false; source_count];
     for route in routes {
-        if let CompiledSourceRef::Voice(handle) = route.source
-            && let Some(value) = used.get_mut(handle.index())
-        {
-            *value = true;
+        if let CompiledSourceRef::Voice(handle) = route.source {
+            if let Some(value) = used.get_mut(handle.index()) {
+                *value = true;
+            }
         }
     }
     used.into_boxed_slice()

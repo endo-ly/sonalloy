@@ -93,10 +93,11 @@ impl Error {
             .context
             .as_deref()
             .and_then(|context| context.token_location.as_ref())
-            && let Some((line, column)) = source.token_location(&self.path, *offset, token)
         {
-            self.line = line;
-            self.column = column;
+            if let Some((line, column)) = source.token_location(&self.path, *offset, token) {
+                self.line = line;
+                self.column = column;
+            }
         }
         if self.line == 0 {
             let mut path = self.path.as_str();
@@ -284,15 +285,16 @@ pub(crate) struct PartWindow {
 impl ScorePlan {
     pub(crate) fn annotate_diagnostics(&self, diagnostics: &mut [sonalloy_core::Diagnostic]) {
         for diagnostic in diagnostics {
-            if diagnostic.detail.is_none()
-                && let Some(path) = diagnostic.path.as_deref()
-                && (path.starts_with("instruments.") || path.starts_with("meta."))
-            {
-                diagnostic.detail = Error::new(path, &diagnostic.message)
-                    .failure(&self.source)
-                    .diagnostics
-                    .remove(0)
-                    .detail;
+            if diagnostic.detail.is_none() {
+                if let Some(path) = diagnostic.path.as_deref() {
+                    if path.starts_with("instruments.") || path.starts_with("meta.") {
+                        diagnostic.detail = Error::new(path, &diagnostic.message)
+                            .failure(&self.source)
+                            .diagnostics
+                            .remove(0)
+                            .detail;
+                    }
+                }
             }
         }
     }

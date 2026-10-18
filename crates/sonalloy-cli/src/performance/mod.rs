@@ -865,26 +865,27 @@ pub(crate) fn prerender_order(demo: &PerformancePlan, required_parts: &[bool]) -
             return;
         }
         required[index] = true;
-        if let Some(source_index) = dependencies[index]
-            && !rendered[source_index]
-        {
-            mark_required(source_index, dependencies, rendered, required);
+        if let Some(source_index) = dependencies[index] {
+            if !rendered[source_index] {
+                mark_required(source_index, dependencies, rendered, required);
+            }
         }
     }
 
     let mut prerender_required = vec![false; demo.parts.len()];
     let mut rendered = vec![false; demo.parts.len()];
     for (index, source_index) in demo.audio_dependencies.iter().enumerate() {
-        if required_parts[index]
-            && let Some(source_index) = source_index
-            && !rendered[*source_index]
-        {
-            mark_required(
-                *source_index,
-                &demo.audio_dependencies,
-                &rendered,
-                &mut prerender_required,
-            );
+        if required_parts[index] {
+            if let Some(source_index) = source_index {
+                if !rendered[*source_index] {
+                    mark_required(
+                        *source_index,
+                        &demo.audio_dependencies,
+                        &rendered,
+                        &mut prerender_required,
+                    );
+                }
+            }
         }
         rendered[index] = true;
     }

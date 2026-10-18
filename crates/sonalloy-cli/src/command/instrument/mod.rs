@@ -336,9 +336,10 @@ fn walk_definition_directory(
         } else if path
             .file_name()
             .is_some_and(|name| name == "definition.json")
-            && let Some(path) = normalize_definition_path(&path, input, diagnostics)
         {
-            paths.insert(path);
+            if let Some(path) = normalize_definition_path(&path, input, diagnostics) {
+                paths.insert(path);
+            }
         }
     }
 }
