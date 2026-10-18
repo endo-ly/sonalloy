@@ -285,6 +285,7 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     let directory = tempdir().expect("directory");
     let score = directory.path().join("preroll.score.yaml");
     let full_output = directory.path().join("full.wav");
+    let analyzed_output = directory.path().join("analyzed.wav");
     let partial_output = directory.path().join("partial.wav");
     let definition = fixture_path("instruments/basic-poly-synth.json");
     let doc = json!({
@@ -294,7 +295,10 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
             {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5},
             {"instrument":"part","degree":"3","at":{"bar":3,"step":1},"duration_quarters":1}
         ]}},
-        "instruments":{"part":{"definition":definition}}
+        "instruments":{
+            "part":{"definition":definition},
+            "silent":{"definition":definition}
+        }
     });
     std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");
     let render = |output: &std::path::Path, extra: &[&str]| {
@@ -322,6 +326,39 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     assert_eq!(full["frames"], 384_000);
     assert_eq!(partial["frames"], 192_000);
 
+    let analyzed: serde_json::Value =
+        serde_json::from_slice(&render(&analyzed_output, &["--analyze"]))
+            .expect("analyzed render report");
+    let analyzed_parts = analyzed["parts"].as_array().expect("part reports");
+    let part = analyzed_parts
+        .iter()
+        .find(|part| part["id"] == "part")
+        .expect("rendered part report");
+    let silent_part = analyzed_parts
+        .iter()
+        .find(|part| part["id"] == "silent")
+        .expect("silent part report");
+    assert_eq!(part["frames"], 384_000);
+    assert!(part["loudness"]["integrated_lufs"].is_number());
+    assert_eq!(silent_part["loudness"]["status"], "silent");
+    assert!(silent_part["loudness"]["integrated_lufs"].is_null());
+    assert_eq!(analyzed["sections"].as_array().map(Vec::len), Some(1));
+    assert!(analyzed["sections"][0]["integrated_lufs"].is_number());
+    assert_eq!(analyzed["sections"][0]["loudness_status"], "measured");
+    let section_parts = analyzed["sections"][0]["parts"]
+        .as_array()
+        .expect("section part reports");
+    let part = section_parts
+        .iter()
+        .find(|part| part["id"] == "part")
+        .expect("section part report");
+    let silent_part = section_parts
+        .iter()
+        .find(|part| part["id"] == "silent")
+        .expect("silent section part report");
+    assert!(part["loudness"]["integrated_lufs"].is_number());
+    assert_eq!(silent_part["loudness"]["status"], "silent");
+
     let read = |path: &std::path::Path| {
         hound::WavReader::open(path)
             .expect("WAV")
@@ -330,7 +367,12 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
             .collect::<Vec<_>>()
     };
     let full_samples = read(&full_output);
+    let analyzed_samples = read(&analyzed_output);
     let partial_samples = read(&partial_output);
+    assert_eq!(
+        full_samples, analyzed_samples,
+        "analysis preserves rendered audio"
+    );
     assert_eq!(partial_samples.len(), 192_000 * 2);
     assert_eq!(
         &full_samples[96_000 * 2..288_000 * 2],
