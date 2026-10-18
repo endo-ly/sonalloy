@@ -26,7 +26,7 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
     name = "sonalloy",
     version,
     about = "Validate instruments and scores, render audio, and play from MIDI",
-    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
+    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, list and search built-in presets, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `preset list` to discover built-in sounds, command-specific `--help` for options, and `device list` to find audio and MIDI device IDs."
 )]
 pub(super) struct Cli {
     #[command(subcommand)]

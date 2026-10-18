@@ -300,10 +300,11 @@ impl ScorePlan {
 
 #[derive(Debug, Clone, Default, clap::Args)]
 pub(crate) struct Bindings {
-    /// Root containing the preset category directories.
+    /// Preset root; takes precedence over SONALLOY_PRESET_ROOT and Score-relative presets/.
     #[arg(long, value_name = "DIRECTORY")]
     pub(crate) preset_root: Option<PathBuf>,
-    /// Bind an external instrument to its definition; repeat for each instrument.
+    /// Bind an `external: true` instrument as ID=DEFINITION; repeat for each. Fixed instruments,
+    /// unknown IDs, and duplicate bindings are rejected.
     #[arg(long = "bind", value_name = "ID=DEFINITION")]
     pub(crate) bind: Vec<String>,
 }

@@ -51,6 +51,11 @@ pub(super) enum RenderCommand {
     )]
     Midi(RenderMidiArgs),
     /// Render and mix a Score YAML performance.
+    #[command(
+        long_about = "Render a Score to a final stereo WAV. `--section` selects a named section; use `--occurrence` to select a repeated occurrence. `--bars` selects an inclusive global bar range and cannot be combined with `--section`. Repeat `--part` to include selected instruments or `--mute` to exclude instruments. `--preroll-bars` processes earlier bars before a selected range so stateful processing can settle.
+
+`--stems-dir` writes each selected Part after its gain and pan. `--premaster-output` writes the stereo mix after Part gain and global fade, before mastering. `--output` writes the final stereo WAV. Partial renders omit Score mastering unless `--apply-master` is set. `--mp3-output` encodes the final mix and `--analyze` measures loudness; both require FFmpeg. Repeat `--trace` to observe instrument parameters; `--trace-every-frames` sets their sampling interval and requires at least one `--trace`. Use `--json` for the render report and diagnostics."
+    )]
     Score(RenderScoreArgs),
 }
 #[derive(Debug, Args)]

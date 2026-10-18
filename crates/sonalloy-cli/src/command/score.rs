@@ -11,38 +11,64 @@ use std::process::ExitCode;
 #[derive(Debug, Subcommand)]
 pub(super) enum ScoreCommand {
     /// Create a valid one-bar Score YAML file.
+    #[command(
+        long_about = "Create a one-bar Score YAML example that references the built-in `LEAD/001-analog-saw-lead` preset. The destination must not already exist. At runtime, built-in preset references are resolved through `--preset-root`, `SONALLOY_PRESET_ROOT`, or a `presets/` directory found from the Score's parent directories."
+    )]
     Init { path: PathBuf },
     /// Validate score syntax, musical semantics, references, and instruments.
+    #[command(
+        long_about = "Parse the Score YAML, expand its form and patterns, resolve instrument definitions, and compile referenced instruments. Validation covers Score structure, note and control events, instrument references and capabilities, and external audio routing. Use `--bind` for each `external: true` instrument. `--json` returns the validation status and diagnostics."
+    )]
     Validate(ScoreArgs),
     /// Inspect the resolved timeline and instrument events.
+    #[command(
+        long_about = "Expand the Score and inspect its resolved timeline. The default output lists event details; `--summary` reports counts and duration for the whole Score, sections, and instruments. `--summary` can be combined with `--json`. `--preview-json` emits normalized browser preview data and requires a Score with one instrument, one constant tempo, and one time signature; it cannot be combined with `--json` or `--summary`."
+    )]
     Inspect(InspectArgs),
     /// Export a complete Type 1 Standard MIDI File.
+    #[command(
+        long_about = "Export the expanded Score as a Type 1 Standard MIDI File with a conductor track and one track per instrument. Instrument tracks use MIDI channels and ports as needed. MIDI does not carry Sonalloy audio gain or Parameter Change and Parameter Ramp events; unsupported or conflicting control data is reported as diagnostics. Use `--json` to capture those diagnostics."
+    )]
     ExportMidi {
         #[command(flatten)]
         score: ScoreArgs,
+        /// Destination MIDI file; an existing file is not replaced.
         #[arg(long)]
         output: PathBuf,
     },
     /// Import one MIDI note channel into Score YAML without quantization.
+    #[command(
+        long_about = "Import a Standard MIDI File into Score YAML while preserving its event timing, tempo changes, and time-signature changes. The generated Score references the supplied instrument Definition and uses `--tonic` as its tonal center. If the file has notes on one channel, that channel is selected automatically; files with multiple note channels require `--channel` (1..=16). Unsupported MIDI events are ignored with diagnostics. The destination must not already exist."
+    )]
     ImportMidi {
+        /// Standard MIDI File to import.
+        #[arg(value_name = "MIDI_FILE")]
         midi: PathBuf,
+        /// Destination Score YAML file; an existing file is not replaced.
         #[arg(long)]
         output: PathBuf,
+        /// Instrument Definition referenced by the generated Score.
         #[arg(long)]
         instrument: PathBuf,
+        /// 1-based MIDI note channel to import (1..=16).
         #[arg(long,value_parser=clap::value_parser!(u8).range(1..=16))]
         channel: Option<u8>,
+        /// Tonal center for the imported Score.
         #[arg(long, default_value = "C")]
         tonic: String,
+        /// Emit machine-readable JSON results and diagnostics.
         #[arg(long)]
         json: bool,
     },
 }
 #[derive(Debug, Args)]
 pub(super) struct ScoreArgs {
+    /// Score YAML path.
+    #[arg(value_name = "SCORE")]
     pub(super) score: PathBuf,
     #[command(flatten)]
     pub(super) bindings: Bindings,
+    /// Emit machine-readable JSON results and diagnostics.
     #[arg(long)]
     pub(super) json: bool,
 }

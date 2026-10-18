@@ -30,6 +30,9 @@ pub(super) enum InstrumentCommand {
     )]
     Validate(BatchDefinitionArgs),
     /// Render and compare a single note from one or more Definitions.
+    #[command(
+        long_about = "Render one note from each supplied Definition, directory, or glob match and compare their audio analysis under the same Note, Velocity, Gate, Tail, and Sample Rate conditions. Repeat Definition inputs to compare selected files. `--loudness` adds Integrated LUFS and True Peak measurements and requires FFmpeg; `--audio-input silence` supplies silence to Definitions that require external audio. A failure in one input does not stop the remaining comparisons. Use `--json` for machine-readable results."
+    )]
     Report(ReportArgs),
     /// Inspect the instrument configuration produced from a Definition.
     #[command(

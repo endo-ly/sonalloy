@@ -13,6 +13,9 @@ use crate::realtime::{PlayOptions, ScheduledAuditionOptions};
 #[derive(Debug, Subcommand)]
 pub(super) enum AuditionCommand {
     /// Audition one instrument from a Score YAML timeline.
+    #[command(
+        long_about = "Play a Score through an audio output without a MIDI input. Use `--part` when the Score has multiple instruments. `--section` selects a named section, and `--occurrence` selects one occurrence when that section repeats. A selected passage that requires multiple independent performance lanes cannot be auditioned as one instrument. `--loop` repeats the timeline without resetting instrument state. Use `device list` to find device IDs; the OS default output is used when `--audio-device` is omitted. Definitions that require external audio use the selected input or the OS default input."
+    )]
     Score(AuditionScoreArgs),
     /// Play one MIDI Note Channel through an audio output without a MIDI input.
     #[command(
