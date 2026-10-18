@@ -195,6 +195,8 @@ sonalloy audition score presets/common-scores/lead.score.yaml --bind preview=<de
 
 自作の楽曲は `score init <path>` から編集し、`score inspect --json` で展開結果を確かめます。複数楽器のリアルタイム試聴には `--part <id>` を指定し、区間は `--section <name>` で選びます。楽曲全体の音は `render score` で確認します。
 
+音量バランスを調べるときは、`instrument report --loudness`でNote・Velocity・Gate・Tailをそろえて各音源の基準音量を比較し、`render score --analyze --json`でPart全体とSection内Partを確認します。数値は音源の役割や演奏密度と合わせて判断し、調整は`instruments.<id>.gain_db`と`sections.<name>.part_gains`へ反映して、最後に楽曲を試聴します。
+
 MIDIは `score import-midi <midi> --instrument <definition> --output <score.yaml>` で取り込み、`score export-midi <score.yaml> --output <song.mid>` で書き出します。17楽器以上はMIDI Portを分けて出力します。音源固有のParameterやゲインレーン間で異なる制御列は省略され、対象楽器と内容がwarningになります。`--json`では成功Reportの`diagnostics`を確認します。音符ごとの強弱・接続、コードの修飾・声部配置、スウィングは[Score仕様](references/score_spec.md)に従って記述します。
 
 ## Deviceが利用できる場合のRealtime試聴
@@ -211,7 +213,7 @@ sonalloy play <definition> --midi-device <id>
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
 - `validate` / `inspect --json`のWarning、出力Mode、Parameter Unit、Route Effect、Parameter IDを最終確認する
-- `--analyze`で数値的な出力状態を確認し、`--trace`で宣言したModulationが意図した範囲を動いたか確認する
+- `--trace`で宣言したModulationが意図した範囲を動いたか確認する
 - 最大Velocity（127）でもクリップしないことを確認する。`render note --velocity 127 --analyze`の`analysis.level.over_full_scale`が`false`であること
 - 生成したWAVを同じ音量条件で試聴する
 
