@@ -16,20 +16,39 @@ const CATEGORIES: [(&str, &str); 9] = [
     ("PLUCK", "Pluck"),
     ("SEQ", "Sequence"),
 ];
+const METADATA_FIELDS: [&str; 6] = [
+    "name",
+    "author",
+    "description",
+    "category",
+    "tags",
+    "recommended_range",
+];
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let presets_root = manifest_dir.join("../../presets");
-    println!("cargo:rerun-if-changed={}", presets_root.display());
+    // Preset membership changes update this catalog; definitions are watched individually below.
+    println!(
+        "cargo:rerun-if-changed={}",
+        presets_root.join("presets-defs.md").display()
+    );
 
     let catalog = collect_catalog(&presets_root).unwrap_or_else(|error| panic!("{error}"));
     let output_path = PathBuf::from(env::var_os("OUT_DIR").expect("output directory"))
         .join("preset-catalog.json");
-    fs::write(
-        &output_path,
-        serde_json::to_vec(&catalog).expect("preset catalog serializes"),
-    )
-    .unwrap_or_else(|error| panic!("could not write {}: {error}", output_path.display()));
+    let generated = serde_json::to_vec(&catalog).expect("preset catalog serializes");
+    write_if_changed(&output_path, &generated)
+        .unwrap_or_else(|error| panic!("could not write {}: {error}", output_path.display()));
+}
+
+fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    if let Ok(existing) = fs::read(path) {
+        if existing == contents {
+            return Ok(());
+        }
+    }
+    fs::write(path, contents)
 }
 
 fn collect_catalog(presets_root: &Path) -> Result<Vec<Value>, String> {
@@ -98,7 +117,6 @@ fn collect_category(
     category_label: &str,
     ids: &mut HashSet<String>,
 ) -> Result<Vec<Value>, String> {
-    println!("cargo:rerun-if-changed={}", category_path.display());
     let mut directories = fs::read_dir(category_path)
         .map_err(|error| format!("could not read {}: {error}", category_path.display()))?
         .map(|entry| {
@@ -164,8 +182,41 @@ fn read_preset(
             )
         })?;
 
+    validate_metadata(metadata, category_label, definition_path)?;
+
+    let mut item = Map::new();
+    item.insert("id".to_owned(), Value::String(id));
+    item.insert("preset".to_owned(), Value::String(preset_path));
+    for field in [
+        "name",
+        "description",
+        "author",
+        "category",
+        "tags",
+        "recommended_range",
+    ] {
+        if let Some(value) = metadata.get(field) {
+            item.insert(field.to_owned(), value.clone());
+        }
+    }
+    Ok(Value::Object(item))
+}
+
+fn validate_metadata(
+    metadata: &Map<String, Value>,
+    category_label: &str,
+    definition_path: &Path,
+) -> Result<(), String> {
+    validate_object_fields(metadata, &METADATA_FIELDS, "metadata", definition_path)?;
     required_text(metadata, "name", definition_path)?;
     let category = required_text(metadata, "category", definition_path)?;
+    validate_metadata_text(
+        category,
+        64,
+        "category",
+        "metadata.category",
+        definition_path,
+    )?;
     if category != category_label {
         return Err(format!(
             "{} metadata.category must be '{category_label}'",
@@ -187,6 +238,29 @@ fn read_preset(
             definition_path.display()
         ));
     }
+    if tags.len() > 12 {
+        return Err(format!(
+            "{} metadata.tags must contain between 0 and 12 items",
+            definition_path.display()
+        ));
+    }
+    let mut normalized_tags = HashSet::new();
+    for (index, tag) in tags.iter().enumerate() {
+        let tag = tag.as_str().expect("tag strings were validated");
+        validate_metadata_text(
+            tag,
+            32,
+            "tag",
+            &format!("metadata.tags[{index}]"),
+            definition_path,
+        )?;
+        if !normalized_tags.insert(tag.to_ascii_lowercase()) {
+            return Err(format!(
+                "{} metadata.tags must not contain ASCII case-insensitive duplicates",
+                definition_path.display()
+            ));
+        }
+    }
     let recommended_range = metadata
         .get("recommended_range")
         .and_then(Value::as_object)
@@ -196,6 +270,12 @@ fn read_preset(
                 definition_path.display()
             )
         })?;
+    validate_object_fields(
+        recommended_range,
+        &["min_midi", "max_midi"],
+        "metadata.recommended_range",
+        definition_path,
+    )?;
     let min_midi = midi_note(recommended_range, "min_midi", definition_path)?;
     let max_midi = midi_note(recommended_range, "max_midi", definition_path)?;
     if min_midi > max_midi {
@@ -206,23 +286,7 @@ fn read_preset(
     }
     validate_optional_text(metadata, "author", definition_path)?;
     validate_optional_text(metadata, "description", definition_path)?;
-
-    let mut item = Map::new();
-    item.insert("id".to_owned(), Value::String(id));
-    item.insert("preset".to_owned(), Value::String(preset_path));
-    for field in [
-        "name",
-        "description",
-        "author",
-        "category",
-        "tags",
-        "recommended_range",
-    ] {
-        if let Some(value) = metadata.get(field) {
-            item.insert(field.to_owned(), value.clone());
-        }
-    }
-    Ok(Value::Object(item))
+    Ok(())
 }
 
 fn is_preset_directory(name: &str) -> bool {
@@ -260,19 +324,65 @@ fn required_text<'a>(
     Ok(value)
 }
 
+fn validate_object_fields(
+    object: &Map<String, Value>,
+    allowed_fields: &[&str],
+    object_path: &str,
+    definition_path: &Path,
+) -> Result<(), String> {
+    if let Some(field) = object
+        .keys()
+        .find(|field| !allowed_fields.contains(&field.as_str()))
+    {
+        return Err(format!(
+            "{} {object_path}.{field} is not a supported field",
+            definition_path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn validate_metadata_text(
+    value: &str,
+    max_chars: usize,
+    field: &str,
+    path: &str,
+    definition_path: &Path,
+) -> Result<(), String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.chars().count() > max_chars {
+        return Err(format!(
+            "{} {path}: {field} must contain between 1 and {max_chars} characters after trimming",
+            definition_path.display()
+        ));
+    }
+    if trimmed != value {
+        return Err(format!(
+            "{} {path}: {field} must not have leading or trailing whitespace",
+            definition_path.display()
+        ));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(format!(
+            "{} {path}: {field} must not contain control characters",
+            definition_path.display()
+        ));
+    }
+    Ok(())
+}
+
 fn validate_optional_text(
     metadata: &Map<String, Value>,
     field: &str,
     definition_path: &Path,
 ) -> Result<(), String> {
-    if let Some(value) = metadata.get(field)
-        && !value.is_null()
-        && !value.is_string()
-    {
-        return Err(format!(
-            "{} metadata.{field} must be a string or null",
-            definition_path.display()
-        ));
+    if let Some(value) = metadata.get(field) {
+        if !value.is_null() && !value.is_string() {
+            return Err(format!(
+                "{} metadata.{field} must be a string or null",
+                definition_path.display()
+            ));
+        }
     }
     Ok(())
 }
