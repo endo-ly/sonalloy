@@ -2,7 +2,7 @@
 
 GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。ここでは各GeneratorのField・Range・Dynamic Parameter・制約を扱います。
 
-Assetを参照する有効なLayerでは、必要なWAVの欠落・読み込み失敗・指定Hashの不一致はCompile Errorです。`sha256`は任意で、Pathは相対・絶対の両方を受け付けます。通常のリサンプリングと仕様どおりのDownmixはAssetの準備に含まれます。`enabled: false`のLayerはAssetを準備しません。
+AssetのPath、Hash、共通の準備・失敗規則とGeneratorごとのSample Rate / Channel変換は[Definition仕様](definition.md#コンパイル時の変換)にまとめています。
 
 | Generator | 用途 |
 |---|---|
@@ -19,7 +19,7 @@ Assetを参照する有効なLayerでは、必要なWAVの欠落・読み込み�
 | Granular | Grain分解によるTexture再構成 |
 | Wave Sequence | 複数Assetの時系列切り替え |
 
-各GeneratorのField表で**Dynamic**がYesの項目は、Modulation RouteやParameter Changeから動かせます。Dynamic ParameterのIDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）。`position`のような走査位置は、各Generatorが準備したSource領域内の位置を表します。値を変えるときは`instrument inspect`でNative Unit・Scale・Clamp範囲を確認できます。
+各GeneratorのField表で**Dynamic**がYesの項目は、Modulation RouteやParameter Changeから動かせます。Dynamic FieldのParameter ID、Unit、Route計算は[Modulation仕様](modulation.md)にまとめています。`position`のような走査値は、各Generatorが準備したSource領域内の位置を表します。実際のParameter ID、Native Unit、Scale、Clamp範囲は`instrument inspect --json`で確認できます。
 
 ## Oscillator
 

@@ -1,6 +1,6 @@
 # Processor仕様
 
-本書は全ProcessorのField・Range・Dynamic Parameterと、種類ごとの補足をまとめます。
+本書はProcessorの配置ごとの制約、Field・Range、種類固有の動作をまとめます。Dynamic ParameterのIDとUnitは[Modulation仕様](modulation.md)を参照してください。
 
 ## 適用位置と種類
 
@@ -28,19 +28,19 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Phaser | `stages`: 2 / 4 / 6 / 8、`center_hz`: 100〜5000、`sweep_octaves`: 0.25〜6、`rate_hz`: 0.01〜8、`depth` / `width` / `mix`: 0〜1、`feedback`: -0.9〜0.9 | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `stages`、`center_hz`、`sweep_octaves` |
 | Ladder Filter | `cutoff_hz`: 20〜20000 Hz、`resonance` / `drive`: 0〜1 | `cutoff`、`resonance`、`drive` | なし（cutoffの実効上限はSample Rate依存） |
 | Formant | `vowel_position` / `throat` / `mix`: 0〜1、`formant_shift_cents`: 有限値（移動後の周波数・帯域幅が有限かつ正）、`profiles`: 1〜8個の5帯域Profile | `vowel_position`、`formant_shift`、`throat`、`mix` | `profiles` |
-| Frequency Shifter（Globalのみ） | `shift_hz`: -5000〜5000 Hz、`mix`: 0〜1 | `shift_hz`、`mix` | 127 framesの固定Latency |
-| Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。最大4個、Runtime bufferは16秒まで |
+| Frequency Shifter（Globalのみ） | `shift_hz`: -5000〜5000 Hz、`mix`: 0〜1 | `shift_hz`、`mix` | なし |
+| Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。Delay Processorは最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
-| Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR、256 framesの固定Latency。IRは最大10秒、最大2個 |
+| Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR。最大10秒、最大2個 |
 | Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity） | `threshold_db`、`range_db` | `detector`、`hysteresis_db`、各Time Field。Globalの`external_audio`は入力整列後に検出 |
 | Transient Shaper（Voice / Global） | `attack` / `sustain`: -1〜1、`mix`: 0〜1 | `attack`、`sustain`、`mix` | Fast / Slow EnvelopeのTime Constant |
 | Compressor（Voice / Global） | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `detector`、`attack_ms`、`release_ms`、`knee_db`。Globalの`external_audio`は入力整列後に検出 |
 | Vocoder（Globalのみ） | `attack_ms`: 0.1〜100 ms、`release_ms`: 5〜1000 ms、`modulator_gain_db` / `output_gain_db`: -24〜24 dB、`mix`: 0〜1 | `modulator_gain_db`、`output_gain_db`、`mix` | 24帯域、0 frames |
 | Envelope Transfer（Globalのみ） | `attack_ms`: 0.1〜200 ms、`release_ms`: 1〜2000 ms、`input_gain_db`: -24〜24 dB、`floor_db`: -96〜0 dB、`mix`: 0〜1 | `input_gain_db`、`floor_db`、`mix` | 0 frames |
-| Spectral Morph（Globalのみ） | `morph`: 0〜1、`output_gain_db`: -24〜24 dB | `morph`、`output_gain_db` | FFT 1024 / Hop 256、1024 frames |
+| Spectral Morph（Globalのみ） | `morph`: 0〜1、`output_gain_db`: -24〜24 dB | `morph`、`output_gain_db` | FFT 1024 / Hop 256 |
 | Limiter | `ceiling_db`: -12〜0 dBFS、`release_ms`: 5〜1000、`input_gain_db`: -24〜24 dB | `ceiling_db`、`input_gain_db` | `release_ms` |
 
-`Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
+`Dynamic Parameter`列はRouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
 
 ## EQとDelayの定義例
 
@@ -84,12 +84,20 @@ EQはLayer / Voice / Global Chainに、DelayはGlobal Chainに配置します。
 
 **Delay** — `time`は`{"value": ..., "unit": "seconds" | "beats"}`で、`beats`は1 beatを4分音符1つとして現在のProcess Tempoから秒へ変換します。`feedback_mode`は`stereo`または`ping_pong`。Tapは`{"time": <timeと同じ形式>, "gain_db": ...}`を最大8個まで持ち、Wet出力だけへ加算されます。
 
-**Convolution** — `ir`はAsset参照（`{"path": ..., "sha256": ...}`）で、Mono / StereoのWAVを最大10秒・2個まで使えます。
+**Convolution** — `ir`はAsset参照（`{"path": ..., "sha256": ...}`）です。共通のPath・Hash・WAV準備規則は[Definition仕様](definition.md#コンパイル時の変換)を参照してください。
 
-**Gate / Compressor** — `detector`は`"self_signal"`（通過信号を検出）または`"external_audio"`（外部Sidechain。Global Chainのみ、`external_audio`の宣言が必要）です。
+Gate / Compressorの`detector`と外部Audio入力の宣言条件は[Definition仕様](definition.md#external-audio)を参照してください。
+
+FilterのCutoffが処理できる上限（20 kHzとSample Rateから決まる値の小さい方）を超える定義は、Warningを出して上限へ制限します。
 
 ## 固定Latency
 
-Frequency Shifterは127 frames、Convolutionは256 frames、Spectral Morphは1024 framesの固定Latencyを持ちます。固定Latencyの合計は`inspect`の`reported_latency_frames`へ反映され、Render時にCLIが補償します。
+Processorは次の固定Latencyを持ちます。
 
-FilterのCutoffが処理できる上限（20 kHzとSample Rateから決まる値の小さい方）を超える定義は、Warningを出して上限へ制限します。
+| Processor | 固定Latency |
+|---|---:|
+| Frequency Shifter | 127 frames |
+| Convolution | 256 frames |
+| Spectral Morph | 1024 frames |
+
+合計は`instrument inspect`の`reported_latency_frames`へ反映されます。Offline Renderでの補償は[CLI詳細仕様](cli.md#latency補償)を参照してください。
