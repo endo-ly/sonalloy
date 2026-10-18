@@ -2657,6 +2657,11 @@ fn load_render_audio_input(
     )
 }
 
+pub(crate) struct NoteReport {
+    pub(crate) analysis: AudioAnalysis,
+    pub(crate) loudness: Option<performance::AudioLoudnessReport>,
+}
+
 pub(crate) fn render_note_report(
     definition: &Path,
     note: u8,
@@ -2664,7 +2669,8 @@ pub(crate) fn render_note_report(
     gate: f64,
     tail: f64,
     audio_input: Option<&str>,
-) -> Result<AudioAnalysis, CliFailure> {
+    include_loudness: bool,
+) -> Result<NoteReport, CliFailure> {
     let (compiled, _) =
         super::load_and_compile(definition, DEFAULT_SAMPLE_RATE, DEFAULT_BLOCK_SIZE)?;
     let required_channels = compiled.required_input_channels();
@@ -2736,7 +2742,11 @@ pub(crate) fn render_note_report(
         external_audio.as_ref(),
     )?;
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    analyze_audio(&audio, Some(note_frequency_hz(note)))
+    let analysis = analyze_audio(&audio, Some(note_frequency_hz(note)))?;
+    let loudness = include_loudness
+        .then(|| analyze_audio_loudness(&audio, 0, audio.frames()))
+        .transpose()?;
+    Ok(NoteReport { analysis, loudness })
 }
 
 fn score_trace_requests(

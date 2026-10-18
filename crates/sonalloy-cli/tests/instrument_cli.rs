@@ -449,6 +449,7 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
             "0.1",
             "--tail",
             "0.1",
+            "--loudness",
             "--json",
         ])
         .assert()
@@ -459,6 +460,11 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
     let report: serde_json::Value =
         serde_json::from_slice(&report_output).expect("instrument report");
     assert_eq!(report["status"], "error");
+    assert_eq!(report["note"], 60);
+    assert_eq!(report["velocity"], 127);
+    assert_eq!(report["gate_seconds"], 0.1);
+    assert_eq!(report["tail_seconds"], 0.1);
+    assert_eq!(report["sample_rate"], 48_000);
     let files = report["files"].as_array().expect("per-file results");
     assert_eq!(files.len(), 4);
     assert!(files.iter().any(|file| {
@@ -474,6 +480,10 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
         .find(|file| file["status"] == "ok")
         .expect("valid Definition report");
     assert_eq!(file["analysis"]["sample_rate"], 48_000);
+    assert!(file["loudness"]["status"].is_string());
+    for field in ["integrated_lufs", "true_peak_db"] {
+        assert!(file["loudness"][field].is_number() || file["loudness"][field].is_null());
+    }
     assert_eq!(file["analysis"]["channels"], 2);
     assert_eq!(
         file["analysis"]["spectrum"]["bands"]
@@ -482,8 +492,6 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
             .len(),
         7
     );
-    assert!(files.iter().any(|file| file["status"] == "error"));
-
     let note_output = directory.path().join("note.wav");
     let rendered = Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -543,6 +551,7 @@ fn instrument_report_silence_input_only_reaches_audio_consumers() {
     let files = report["files"].as_array().expect("files");
     assert_eq!(files.len(), 2);
     assert!(files.iter().all(|file| file["status"] == "ok"));
+    assert!(files.iter().all(|file| file.get("loudness").is_none()));
 }
 
 #[test]
@@ -560,6 +569,7 @@ fn instrument_report_text_includes_all_band_energy_ratios() {
             "0.1",
             "--tail",
             "0.1",
+            "--loudness",
         ])
         .assert()
         .success()
@@ -567,6 +577,8 @@ fn instrument_report_text_includes_all_band_energy_ratios() {
         .stdout
         .clone();
     let output = String::from_utf8(output).expect("report output");
+    assert!(output.contains("sample rate 48000 Hz"));
+    assert!(output.contains("loudness:"));
     for band in [
         "20–60 Hz",
         "60–120 Hz",
