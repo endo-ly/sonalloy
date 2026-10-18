@@ -194,7 +194,7 @@ presets/
 
 1. カテゴリ末尾のIDでディレクトリを作り、`definition.json` を配置する。
 2. 短いPreview Scoreを配置し、別の演奏で確認する場合に限り詳細試奏Score・WAVを配置する。
-3. `presets-defs.md` のカタログを更新する。
+3. 追加・削除したPresetを `presets-defs.md` のカタログへ反映する。
 4. パスを参照するスクリプト、テスト、Scoreを確認する。
 
 ## 検証
