@@ -87,11 +87,11 @@ If `--midi-device` is omitted, no available MIDI inputs is an error, one input i
     },
 }
 
-pub(super) fn run(cli: Cli) -> ExitCode {
+pub(super) fn run(cli: Cli, preset_catalog_json: &str) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
         Command::Score { command } => score::run(command),
-        Command::Preset { command } => preset::run(command),
+        Command::Preset { command } => preset::run(command, preset_catalog_json),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),

@@ -28,11 +28,13 @@ const METADATA_FIELDS: [&str; 6] = [
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let presets_root = manifest_dir.join("../../presets");
-    // Preset membership changes update this catalog; definitions are watched individually below.
-    println!(
-        "cargo:rerun-if-changed={}",
-        presets_root.join("presets-defs.md").display()
-    );
+    // Keep this watcher in the thin binary package because Cargo recursively tracks nested assets.
+    for (category, _) in &CATEGORIES {
+        println!(
+            "cargo:rerun-if-changed={}",
+            presets_root.join(category).display()
+        );
+    }
 
     let catalog = collect_catalog(&presets_root).unwrap_or_else(|error| panic!("{error}"));
     let output_path = PathBuf::from(env::var_os("OUT_DIR").expect("output directory"))
