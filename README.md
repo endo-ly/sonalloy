@@ -54,18 +54,20 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 
 | したいこと | コマンド |
 |---|---|
+| プリセットを一覧・検索する | `sonalloy preset list` / `sonalloy preset list --query <text> --json` |
 | 音源定義のひな形を生成する | `sonalloy instrument init <path>` |
 | 定義を検証する | `sonalloy instrument validate <definition>` |
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
 | 1音 / Event列 / MIDIをレンダリングする | `sonalloy render note` / `events` / `midi` |
 | 楽曲・試奏Scoreを確認する | `sonalloy score validate <score>` → `sonalloy render score <score> --output <wav>` |
+| ScoreとMIDIを変換する | `sonalloy score import-midi` / `sonalloy score export-midi` |
 | 演奏を試聴する（MIDI Keyboard不要） | `sonalloy score init` → `sonalloy audition score` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
 | インストールしたCLIをアップデートする | `sonalloy update` |
 
 楽曲と試奏は[Score YAML](.agents/skills/create-instrument/references/score_spec.md)で記述します。音源はInstrument Definition JSONで参照し、同じ演奏からWAV・Stem・MIDIを生成できます。
 
-全コマンドのOptionと出力の詳細は[CLIリファレンス](.agents/skills/create-instrument/references/cli.md)を参照してください。
+Optionと使い方は各コマンドの`--help`、JSON Report・解析・診断の詳細は[CLI詳細仕様](.agents/skills/create-instrument/references/cli.md)を参照してください。`preset list`は音源のメタデータを表示し、Scoreの演奏・レンダリングにはPreset Definitionと必要なAssetが必要です。
 
 ## アプリケーションへの組込み
 
@@ -80,7 +82,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 文書 | 内容 |
 |---|---|
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源を作成・検証・試聴する手順と仕様への入口 |
-| [`.agents/skills/create-instrument/references/cli.md`](.agents/skills/create-instrument/references/cli.md) | CLIのコマンド、Option、Report、診断Code |
+| [`.agents/skills/create-instrument/references/cli.md`](.agents/skills/create-instrument/references/cli.md) | CLIのJSON Report、解析、診断Code |
 | [`.agents/skills/create-instrument/references/score_spec.md`](.agents/skills/create-instrument/references/score_spec.md) | 楽曲・試奏・プレビューのScore YAML仕様 |
 
 ### 設計・実装を理解する
