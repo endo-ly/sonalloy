@@ -52,6 +52,13 @@ fn write_spectral_definition(directory: &std::path::Path) -> std::path::PathBuf 
     definition
 }
 
+fn assert_measured_loudness(loudness: &serde_json::Value) {
+    assert_eq!(loudness["status"], "measured");
+    for field in ["integrated_lufs", "true_peak_db"] {
+        assert!(loudness[field].as_f64().is_some_and(f64::is_finite));
+    }
+}
+
 #[test]
 fn instrument_init_validate_and_inspect_are_available() {
     let directory = tempdir().expect("temporary directory");
@@ -446,9 +453,9 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
             "--velocity",
             "127",
             "--gate",
-            "0.1",
+            "0.5",
             "--tail",
-            "0.1",
+            "0.5",
             "--loudness",
             "--json",
         ])
@@ -462,8 +469,8 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
     assert_eq!(report["status"], "error");
     assert_eq!(report["note"], 60);
     assert_eq!(report["velocity"], 127);
-    assert_eq!(report["gate_seconds"], 0.1);
-    assert_eq!(report["tail_seconds"], 0.1);
+    assert_eq!(report["gate_seconds"], 0.5);
+    assert_eq!(report["tail_seconds"], 0.5);
     assert_eq!(report["sample_rate"], 48_000);
     let files = report["files"].as_array().expect("per-file results");
     assert_eq!(files.len(), 4);
@@ -480,10 +487,7 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
         .find(|file| file["status"] == "ok")
         .expect("valid Definition report");
     assert_eq!(file["analysis"]["sample_rate"], 48_000);
-    assert!(file["loudness"]["status"].is_string());
-    for field in ["integrated_lufs", "true_peak_db"] {
-        assert!(file["loudness"][field].is_number() || file["loudness"][field].is_null());
-    }
+    assert_measured_loudness(&file["loudness"]);
     assert_eq!(file["analysis"]["channels"], 2);
     assert_eq!(
         file["analysis"]["spectrum"]["bands"]
@@ -503,9 +507,9 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
             "--velocity",
             "127",
             "--gate",
-            "0.1",
+            "0.5",
             "--tail",
-            "0.1",
+            "0.5",
             "--output",
         ])
         .arg(&note_output)
