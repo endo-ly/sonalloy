@@ -26,7 +26,7 @@ jobs:
       - name: C ABI tests
         run: cargo test -p sonalloy-capi
       - name: CLI tests
-        run: cargo test -p sonalloy-cli -p sonalloy-cli-core --tests
+        run: cargo test -p sonalloy-cli --tests
       - name: DSP integration tests
         run: >
           cargo test -p sonalloy-core
@@ -84,7 +84,7 @@ jobs:
       - name: Install audio tools
         run: brew install ffmpeg
       - name: C ABI and CLI tests
-        run: cargo test -p sonalloy-capi -p sonalloy-cli -p sonalloy-cli-core --tests
+        run: cargo test -p sonalloy-capi -p sonalloy-cli --tests
       - name: CMake consumer smoke
         run: |
           cmake -S . -B cmake-build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release

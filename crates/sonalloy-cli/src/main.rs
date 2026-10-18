@@ -1,8 +1,15 @@
+mod command;
+mod midi;
+mod musical_time;
+mod output;
+mod performance;
+mod realtime;
+mod score;
+
 use std::process::ExitCode;
 
+use clap::Parser;
+
 fn main() -> ExitCode {
-    sonalloy_cli_core::run(include_str!(concat!(
-        env!("OUT_DIR"),
-        "/preset-catalog.json"
-    )))
+    command::run(command::Cli::parse())
 }

@@ -1750,18 +1750,6 @@ name = "sonalloy-cli"
 version = "2026.10.18"
 dependencies = [
  "assert_cmd",
- "hound",
- "midly",
- "predicates",
- "serde_json",
- "sonalloy-cli-core",
- "tempfile",
-]
-
-[[package]]
-name = "sonalloy-cli-core"
-version = "2026.10.18"
-dependencies = [
  "clap",
  "cpal",
  "crossbeam-queue",
@@ -1774,6 +1762,7 @@ dependencies = [
  "num-bigint",
  "num-rational",
  "num-traits",
+ "predicates",
  "serde",
  "serde_json",
  "sha2",

@@ -1,7 +1,16 @@
 use std::process::ExitCode;
+use std::sync::LazyLock;
 
 use clap::{Args, Subcommand};
 use serde_json::{Value, json};
+
+static PRESETS: LazyLock<Vec<Value>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/preset-catalog.json"
+    )))
+    .expect("build-time preset catalog is valid JSON")
+});
 
 #[derive(Debug, Subcommand)]
 pub(super) enum PresetCommand {
@@ -22,16 +31,14 @@ pub(super) struct ListArgs {
     json: bool,
 }
 
-pub(super) fn run(command: PresetCommand, preset_catalog_json: &str) -> ExitCode {
+pub(super) fn run(command: PresetCommand) -> ExitCode {
     match command {
-        PresetCommand::List(args) => list(&args, preset_catalog_json),
+        PresetCommand::List(args) => list(&args),
     }
 }
 
-fn list(args: &ListArgs, preset_catalog_json: &str) -> ExitCode {
-    let all_presets: Vec<Value> =
-        serde_json::from_str(preset_catalog_json).expect("build-time preset catalog is valid JSON");
-    let presets = all_presets
+fn list(args: &ListArgs) -> ExitCode {
+    let presets = PRESETS
         .iter()
         .filter(|preset| {
             args.query

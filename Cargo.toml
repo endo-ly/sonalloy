@@ -4,7 +4,6 @@ members = [
     "crates/sonalloy-core",
     "crates/sonalloy-dsp-sys",
     "crates/sonalloy-cli",
-    "crates/sonalloy-cli-core",
     "crates/sonalloy-capi",
 ]
 
