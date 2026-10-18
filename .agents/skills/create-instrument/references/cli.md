@@ -53,11 +53,11 @@ sonalloy instrument validate "instruments/*/definition.json" --json
 指定したNote / Velocityを各音源で1回鳴らして解析し、結果を比較します。WAVは出力しません。入力方法は`instrument validate`と共通です。GateとTailは既定で0.5秒です。外部Audio入力が必要な音源は`--audio-input silence`で評価できます。
 
 ```bash
-sonalloy instrument report instruments/ --note 60 --velocity 127 --json
+sonalloy instrument report instruments/ --note 60 --velocity 127 --loudness --json
 sonalloy instrument report "instruments/*/definition.json" --gate 1.0 --tail 1.0
 ```
 
-JSONの`files[]`は音源ごとの`path`、`status`、`analysis`、`diagnostics`を持ち、`analysis`にはPeak、RMS、7帯域のEnergy Ratioを含みます。通常表示にも7帯域のEnergy Ratioを表示します。入力や解析に失敗した場合も残りを処理し、1件でも失敗すると終了コード1になります。
+`--loudness`を指定すると、各音源の`loudness`にIntegrated LUFSとTrue Peak（dBTP）を追加します。JSONのReportにはNote、Velocity、Gate、Tail、Sample Rateも含まれ、測定条件をそろえて比較できます。`loudness.status`は`measured`、`silent`、`unmeasurable`のいずれかで、測定できない数値は`null`です。`analysis`には従来のPeak、RMS、7帯域のEnergy Ratioを含みます。通常表示にも7帯域のEnergy Ratioと、指定時は音量測定結果を表示します。入力や解析に失敗した場合も残りを処理し、1件でも失敗すると終了コード1になります。
 
 ### `instrument inspect` — コンパイル結果の確認
 
@@ -146,7 +146,7 @@ MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数�
 | `--stems-dir DIR` | Part Gain・Pan適用後、全体Fade・Master適用前の楽器別WAV |
 | `--premaster-output WAV` | Gain・全体Fade適用後、Master前のMix |
 | `--mp3-output PATH` | 完成音声からMP3を生成し測定。FFmpeg必須 |
-| `--analyze` | Premasterと完成WAVの音響・LUFS・True Peak・LRA解析。FFmpeg必須 |
+| `--analyze` | Premasterと完成WAVの音響・LUFS・True Peak・LRA、Part / Sectionの音量解析。FFmpeg必須 |
 | `--section NAME` / `--occurrence N` | 指定Sectionの1出現を選択。Occurrenceは`form`内の1始まり。名前が一意ならOccurrenceを省略可 |
 | `--bars START-END` | 曲頭からの通し小節範囲（両端を含む）。`--section`とは排他的 |
 | `--part ID` / `--mute ID` | Mixへ含める / 除外するPart。複数回指定可。Audio Inputに必要なPartも処理されますが、選択外Partは出力に含まれません |
@@ -157,7 +157,7 @@ MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数�
 
 MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。Score全体のFadeはPart / Mute選択でも適用され、範囲選択ではFade区間と重なる部分に反映されます。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
 
-JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。`--analyze`では、マスタリング前MixのSection別分析を`sections[]`に返します。各要素には`section`、`occurrence`、Score先頭からの範囲（`start_frame` / `end_frame`、`start_seconds` / `end_seconds`）、`integrated_lufs`、`true_peak_db`、`rms`、`peak`、7帯域の`bands`、Part別の`parts`が含まれます。`parts[]`はPart IDごとのRMS / Peakを持ちます。LUFS・True Peak・帯域を測定できない場合、その値は`null`です。Part処理の診断には`part`、`section`、`occurrence`、`time_seconds`、`block_start_frame`、`tail`を含みます。
+JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。`--analyze`では各Partに全体の`loudness`を、マスタリング前Mixの各Sectionに音響解析とPart別の`parts`を返します。Part別の全体測定は出力Stemと同じ音声範囲を使い、Score全体のFadeとMasterを適用する前の値です。Section内Partの`loudness`はSection境界で区切った値です。SectionのMixは`integrated_lufs`、`true_peak_db`、`loudness_status`を持ちます。音量の`status`は`measured`（LUFSを測定）、`silent`（対象が完全な無音）、`unmeasurable`（音声はあるがLUFSを測定できない）で、測定できない数値は`null`です。既存の`rms`と`peak`は無音時も0を返します。
 
 ## リアルタイム演奏
 
@@ -353,7 +353,7 @@ Analysisの主なFieldは次のとおりです。
 
 帯域Energyは既存のMono Spectrumと同じ窓から計算し、20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzの帯域へFFT Binを一度ずつ集計します。`mean_square`は窓のPowerを補正した平均二乗値、`power_dbfs`はそのPowerのdBFS、`energy_ratio`は全正周波数Powerに対する比率です。上端はNyquistへ切り詰め、利用できるBinがない帯域は`null`を返します。
 
-LoudnessはCLIのFFmpegによるオフライン計測です。`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Scoreでは`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。無音のLUFSやTrue Peakも`null`です。
+単独RenderとScore全体のMix / 完成WAVはFFmpegで測定します。`render score --analyze`のPart全体、Section内Part、Section MixにはそれぞれLUFSとTrue Peakを返します。通常表示では、Part全体とSection Mix / Section内Partの状態、LUFS、True Peakを一覧できます。Score全体の音量測定にFFmpegを使うため、`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Score全体では`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 

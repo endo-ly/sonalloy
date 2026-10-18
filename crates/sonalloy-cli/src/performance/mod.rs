@@ -7,8 +7,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) mod events;
+mod loudness;
 mod master;
 use events::{CompiledEvents, MusicalEvent, PerformanceEvents};
+pub(crate) use loudness::{AudioLoudnessReport, LoudnessStatus, analyze_audio_loudness};
 pub(crate) use master::{
     FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, analyze_loudness, encode_mp3,
     master, measure_loudness,

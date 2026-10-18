@@ -1203,6 +1203,11 @@ fn render_score_mix(
                 None
             };
             let frames = output_audio.frames();
+            let loudness = if output_selected && args.analyze {
+                Some(analyze_audio_loudness(&output_audio, 0, frames)?)
+            } else {
+                None
+            };
             if output_selected {
                 mix.add_part(&output_audio, 0.0)
                     .map_err(|error| CliFailure {
@@ -1217,6 +1222,7 @@ fn render_score_mix(
                         demo,
                         &part.definition.id,
                         &output_audio,
+                        loudness.expect("part loudness exists when analysis is enabled"),
                         &mut section_ranges,
                         &mut part_section_levels,
                     )?;
@@ -1226,6 +1232,7 @@ fn render_score_mix(
                 id: part.definition.id.clone(),
                 lane_gains_db: part.render_lanes.iter().map(|lane| lane.gain_db).collect(),
                 frames,
+                loudness,
                 stem,
                 traces,
             });
@@ -1911,6 +1918,38 @@ fn run_render_score(args: &RenderScoreArgs) -> ExitCode {
                 );
             }
         }
+        if args.analyze {
+            println!("part loudness (Integrated LUFS / True Peak dBTP):");
+            for part in &report.parts {
+                if let Some(loudness) = &part.loudness {
+                    print_score_loudness_row(
+                        &format!("  {}", part.id),
+                        loudness.status,
+                        loudness.integrated_lufs,
+                        loudness.true_peak_db,
+                    );
+                }
+            }
+            if let Some(sections) = &report.sections {
+                println!("section loudness (Integrated LUFS / True Peak dBTP):");
+                for section in sections {
+                    print_score_loudness_row(
+                        &format!("  {} #{}", section.section, section.occurrence),
+                        section.loudness_status,
+                        section.integrated_lufs,
+                        section.true_peak_db,
+                    );
+                    for part in &section.parts {
+                        print_score_loudness_row(
+                            &format!("    {}", part.id),
+                            part.loudness.status,
+                            part.loudness.integrated_lufs,
+                            part.loudness.true_peak_db,
+                        );
+                    }
+                }
+            }
+        }
         if let Some(master) = &report.master {
             println!(
                 "master target: {:.1} LUFS, {:.2} dBTP",
@@ -2083,6 +2122,23 @@ fn print_loudness_measurement(label: &str, measurement: &LoudnessMeasurement) {
     );
 }
 
+fn print_score_loudness_row(
+    label: &str,
+    status: performance::LoudnessStatus,
+    integrated_lufs: Option<f64>,
+    true_peak_db: Option<f64>,
+) {
+    let status = match status {
+        performance::LoudnessStatus::Measured => "measured",
+        performance::LoudnessStatus::Silent => "silent",
+        performance::LoudnessStatus::Unmeasurable => "unmeasurable",
+    };
+    let integrated_lufs =
+        integrated_lufs.map_or_else(|| "—".to_owned(), |value| format!("{value:.2}"));
+    let true_peak_db = true_peak_db.map_or_else(|| "—".to_owned(), |value| format!("{value:+.2}"));
+    println!("{label}: {status} | {integrated_lufs} LUFS | {true_peak_db} dBTP");
+}
+
 #[derive(Debug, Serialize)]
 struct PartRenderReport {
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -2090,6 +2146,8 @@ struct PartRenderReport {
     id: String,
     lane_gains_db: Vec<f64>,
     frames: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    loudness: Option<performance::AudioLoudnessReport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stem: Option<String>,
 }
@@ -2104,6 +2162,7 @@ struct SectionAnalysisReport {
     end_seconds: f64,
     integrated_lufs: Option<f64>,
     true_peak_db: Option<f64>,
+    loudness_status: performance::LoudnessStatus,
     rms: f32,
     peak: f32,
     bands: Vec<sonalloy_core::SpectralBand>,
@@ -2114,6 +2173,7 @@ struct SectionPartLevel {
     id: String,
     rms: f32,
     peak: f32,
+    loudness: performance::AudioLoudnessReport,
 }
 
 #[derive(Debug, Serialize)]
@@ -2123,6 +2183,7 @@ struct SectionPartAnalysisReport {
     peak: f32,
     rms_dbfs: Option<f32>,
     peak_dbfs: Option<f32>,
+    loudness: performance::AudioLoudnessReport,
 }
 
 fn compare_rendered_audio(
@@ -2222,6 +2283,23 @@ fn analyze_audio(
         diagnostics: vec![
             Diagnostic::error(DiagnosticCode::RenderError, "audio analysis failed")
                 .with_detail(error.to_string()),
+        ],
+    })
+}
+
+fn analyze_audio_loudness(
+    audio: &sonalloy_core::RenderedAudio,
+    start_frame: usize,
+    end_frame: usize,
+) -> Result<performance::AudioLoudnessReport, CliFailure> {
+    performance::analyze_audio_loudness(audio, start_frame, end_frame).map_err(|error| CliFailure {
+        code: 3,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::RenderError,
+                "audio loudness analysis failed",
+            )
+            .with_detail(error.to_string()),
         ],
     })
 }
@@ -2329,6 +2407,7 @@ fn collect_section_part_levels(
     demo: &performance::PerformancePlan,
     id: &str,
     audio: &sonalloy_core::RenderedAudio,
+    full_loudness: performance::AudioLoudnessReport,
     section_ranges: &mut Option<Vec<Option<SectionFrameRange>>>,
     part_section_levels: &mut [Vec<SectionPartLevel>],
 ) -> Result<(), CliFailure> {
@@ -2343,7 +2422,7 @@ fn collect_section_part_levels(
         .enumerate()
     {
         if let Some(range) = range {
-            part_section_levels[index].push(analyze_section_part(id, audio, range));
+            part_section_levels[index].push(analyze_section_part(id, audio, range, full_loudness)?);
         }
     }
     Ok(())
@@ -2353,7 +2432,8 @@ fn analyze_section_part(
     id: &str,
     audio: &sonalloy_core::RenderedAudio,
     range: SectionFrameRange,
-) -> SectionPartLevel {
+    full_loudness: performance::AudioLoudnessReport,
+) -> Result<SectionPartLevel, CliFailure> {
     let mut peak = 0.0_f32;
     let mut sum_squares = 0.0_f64;
     let mut sample_count = 0_usize;
@@ -2374,11 +2454,17 @@ fn analyze_section_part(
     } else {
         (sum_squares / sample_count as f64).sqrt() as f32
     };
-    SectionPartLevel {
+    let loudness = if range.relative_start == 0 && range.relative_end == audio.frames() {
+        full_loudness
+    } else {
+        analyze_audio_loudness(audio, range.relative_start, range.relative_end)?
+    };
+    Ok(SectionPartLevel {
         id: id.to_owned(),
         rms,
         peak,
-    }
+        loudness,
+    })
 }
 
 fn amplitude_dbfs(value: f32) -> Option<f32> {
@@ -2406,7 +2492,7 @@ fn analyze_score_sections(
         let section_audio =
             slice_rendered_audio(mix_audio, range.relative_start, range.relative_end);
         let analysis = analyze_audio(&section_audio, None)?;
-        let loudness = section_loudness(&section_audio)?;
+        let loudness = analyze_audio_loudness(mix_audio, range.relative_start, range.relative_end)?;
         let parts = parts
             .into_iter()
             .map(|part| SectionPartAnalysisReport {
@@ -2415,6 +2501,7 @@ fn analyze_score_sections(
                 peak: part.peak,
                 rms_dbfs: amplitude_dbfs(part.rms),
                 peak_dbfs: amplitude_dbfs(part.peak),
+                loudness: part.loudness,
             })
             .collect();
         reports.push(SectionAnalysisReport {
@@ -2426,6 +2513,7 @@ fn analyze_score_sections(
             end_seconds: range.end_seconds,
             integrated_lufs: loudness.integrated_lufs,
             true_peak_db: loudness.true_peak_db,
+            loudness_status: loudness.status,
             rms: analysis.level.rms,
             peak: analysis.level.peak,
             bands: analysis.spectrum.bands,
@@ -2433,27 +2521,6 @@ fn analyze_score_sections(
         });
     }
     Ok(reports)
-}
-
-fn section_loudness(
-    audio: &sonalloy_core::RenderedAudio,
-) -> Result<LoudnessMeasurement, CliFailure> {
-    let directory = tempfile::tempdir().map_err(|error| CliFailure {
-        code: 4,
-        diagnostics: vec![
-            Diagnostic::error(
-                DiagnosticCode::WavOutputError,
-                "could not create analysis directory",
-            )
-            .with_detail(error.to_string()),
-        ],
-    })?;
-    let path = directory.path().join("section.wav");
-    write_wav(&path, audio).map_err(|error| CliFailure {
-        code: 4,
-        diagnostics: vec![error],
-    })?;
-    performance::measure_loudness(&path).map_err(ffmpeg_failure)
 }
 
 fn slice_rendered_audio(
@@ -2639,6 +2706,11 @@ fn load_render_audio_input(
     )
 }
 
+pub(crate) struct NoteReport {
+    pub(crate) analysis: AudioAnalysis,
+    pub(crate) loudness: Option<performance::AudioLoudnessReport>,
+}
+
 pub(crate) fn render_note_report(
     definition: &Path,
     note: u8,
@@ -2646,7 +2718,8 @@ pub(crate) fn render_note_report(
     gate: f64,
     tail: f64,
     audio_input: Option<&str>,
-) -> Result<AudioAnalysis, CliFailure> {
+    include_loudness: bool,
+) -> Result<NoteReport, CliFailure> {
     let (compiled, _) =
         super::load_and_compile(definition, DEFAULT_SAMPLE_RATE, DEFAULT_BLOCK_SIZE)?;
     let required_channels = compiled.required_input_channels();
@@ -2718,7 +2791,11 @@ pub(crate) fn render_note_report(
         external_audio.as_ref(),
     )?;
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    analyze_audio(&audio, Some(note_frequency_hz(note)))
+    let analysis = analyze_audio(&audio, Some(note_frequency_hz(note)))?;
+    let loudness = include_loudness
+        .then(|| analyze_audio_loudness(&audio, 0, audio.frames()))
+        .transpose()?;
+    Ok(NoteReport { analysis, loudness })
 }
 
 fn score_trace_requests(
@@ -2838,13 +2915,6 @@ mod mastering_tests {
 
     #[test]
     fn partial_section_analysis_reports_the_rendered_subrange() {
-        if std::process::Command::new("ffmpeg")
-            .arg("-version")
-            .output()
-            .is_err()
-        {
-            return;
-        }
         let directory = tempfile::tempdir().expect("directory");
         let (mut definition, mut args) = fixture(directory.path());
         definition["form"][0]["bars"] = serde_json::json!(4);
@@ -2888,6 +2958,17 @@ mod mastering_tests {
         assert!((report[0].end_seconds - 6.0).abs() < 1e-9);
         assert_eq!(report[0].parts.len(), 1);
         assert!(report[0].parts[0].rms > 0.0);
+        assert!(matches!(
+            report[0].loudness_status,
+            performance::LoudnessStatus::Measured
+        ));
+        assert!(report[0].integrated_lufs.is_some_and(f64::is_finite));
+        assert!(
+            report[0].parts[0]
+                .loudness
+                .integrated_lufs
+                .is_some_and(f64::is_finite)
+        );
     }
 
     #[test]

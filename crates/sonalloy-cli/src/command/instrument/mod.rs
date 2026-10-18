@@ -85,6 +85,9 @@ pub(super) struct ReportArgs {
     /// External Audio WAV, or `silence`.
     #[arg(long, value_name = "WAV|silence")]
     audio_input: Option<String>,
+    /// Measure Integrated LUFS and True Peak with the rendered audio.
+    #[arg(long)]
+    loudness: bool,
     /// Emit machine-readable JSON.
     #[arg(long)]
     json: bool,
@@ -468,6 +471,8 @@ struct InstrumentReportFile {
     status: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     analysis: Option<sonalloy_core::AudioAnalysis>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    loudness: Option<crate::performance::AudioLoudnessReport>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
 }
@@ -477,6 +482,9 @@ struct InstrumentReport {
     status: &'static str,
     note: u8,
     velocity: u8,
+    gate_seconds: f64,
+    tail_seconds: f64,
+    sample_rate: u32,
     files: Vec<InstrumentReportFile>,
 }
 
@@ -489,6 +497,7 @@ fn run_report(args: &ReportArgs) -> ExitCode {
             path: failure.path,
             status: "error",
             analysis: None,
+            loudness: None,
             diagnostics: failure.diagnostics,
         })
         .collect::<Vec<_>>();
@@ -500,18 +509,21 @@ fn run_report(args: &ReportArgs) -> ExitCode {
             args.gate,
             args.tail,
             args.audio_input.as_deref(),
+            args.loudness,
         );
         match result {
-            Ok(analysis) => files.push(InstrumentReportFile {
+            Ok(note_report) => files.push(InstrumentReportFile {
                 path: path.to_string_lossy().into_owned(),
                 status: "ok",
-                analysis: Some(analysis),
+                analysis: Some(note_report.analysis),
+                loudness: note_report.loudness,
                 diagnostics: Vec::new(),
             }),
             Err(failure) => files.push(InstrumentReportFile {
                 path: path.to_string_lossy().into_owned(),
                 status: "error",
                 analysis: None,
+                loudness: None,
                 diagnostics: failure.diagnostics,
             }),
         }
@@ -522,6 +534,9 @@ fn run_report(args: &ReportArgs) -> ExitCode {
         status: if failed { "error" } else { "ok" },
         note: args.note,
         velocity: args.velocity,
+        gate_seconds: args.gate,
+        tail_seconds: args.tail,
+        sample_rate: DEFAULT_SAMPLE_RATE,
         files,
     };
     if args.json {
@@ -530,36 +545,55 @@ fn run_report(args: &ReportArgs) -> ExitCode {
             serde_json::to_string(&report).expect("instrument report is serializable")
         );
     } else {
-        for file in &report.files {
-            if let Some(analysis) = &file.analysis {
-                println!(
-                    "ok {}: peak {:?} dBFS, rms {:?} dBFS",
-                    file.path, analysis.level.peak_dbfs, analysis.level.rms_dbfs
-                );
-                let bands = analysis
-                    .spectrum
-                    .bands
-                    .iter()
-                    .map(|band| {
-                        let ratio = band.energy_ratio.map_or_else(
-                            || "n/a".to_owned(),
-                            |ratio| format!("{:.1}%", ratio * 100.0),
-                        );
-                        format!("{:.0}–{:.0} Hz {ratio}", band.lower_hz, band.upper_hz)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                println!("  band energy ratio: {bands}");
-            } else {
-                println!("error {}", file.path);
-                print_diagnostics(&file.diagnostics);
-            }
-        }
+        print_report_text(&report);
     }
     if failed {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+fn print_report_text(report: &InstrumentReport) {
+    println!(
+        "note {}, velocity {}, gate {:.3}s, tail {:.3}s, sample rate {} Hz",
+        report.note, report.velocity, report.gate_seconds, report.tail_seconds, report.sample_rate
+    );
+    for file in &report.files {
+        if let Some(analysis) = &file.analysis {
+            println!(
+                "ok {}: peak {:?} dBFS, rms {:?} dBFS",
+                file.path, analysis.level.peak_dbfs, analysis.level.rms_dbfs
+            );
+            if let Some(loudness) = file.loudness {
+                let status = match loudness.status {
+                    crate::performance::LoudnessStatus::Measured => "measured",
+                    crate::performance::LoudnessStatus::Silent => "silent",
+                    crate::performance::LoudnessStatus::Unmeasurable => "unmeasurable",
+                };
+                println!(
+                    "  loudness: {status}, {:?} LUFS, {:?} dBTP",
+                    loudness.integrated_lufs, loudness.true_peak_db
+                );
+            }
+            let bands = analysis
+                .spectrum
+                .bands
+                .iter()
+                .map(|band| {
+                    let ratio = band.energy_ratio.map_or_else(
+                        || "n/a".to_owned(),
+                        |ratio| format!("{:.1}%", ratio * 100.0),
+                    );
+                    format!("{:.0}–{:.0} Hz {ratio}", band.lower_hz, band.upper_hz)
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            println!("  band energy ratio: {bands}");
+        } else {
+            println!("error {}", file.path);
+            print_diagnostics(&file.diagnostics);
+        }
     }
 }
 
