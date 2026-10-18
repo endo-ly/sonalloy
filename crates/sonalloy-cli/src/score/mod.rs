@@ -300,7 +300,7 @@ impl ScorePlan {
 
 #[derive(Debug, Clone, Default, clap::Args)]
 pub(crate) struct Bindings {
-    /// Preset root; takes precedence over SONALLOY_PRESET_ROOT and Score-relative presets/.
+    /// Preset root; takes precedence over `SONALLOY_PRESET_ROOT` and Score-relative presets/.
     #[arg(long, value_name = "DIRECTORY")]
     pub(crate) preset_root: Option<PathBuf>,
     /// Bind an `external: true` instrument as ID=DEFINITION; repeat for each. Fixed instruments,

@@ -12,6 +12,7 @@ use crate::output::CliFailure;
 
 mod dev;
 mod instrument;
+mod preset;
 mod realtime;
 mod render;
 pub(crate) mod score;
@@ -44,6 +45,11 @@ enum Command {
     Score {
         #[command(subcommand)]
         command: score::ScoreCommand,
+    },
+    /// List and search built-in presets.
+    Preset {
+        #[command(subcommand)]
+        command: preset::PresetCommand,
     },
     /// Render an instrument, score, or MIDI file to audio.
     Render {
@@ -85,6 +91,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
         Command::Score { command } => score::run(command),
+        Command::Preset { command } => preset::run(command),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),
