@@ -105,6 +105,25 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
     path
 }
 
+fn write_preroll_score(directory: &std::path::Path) -> std::path::PathBuf {
+    let score = directory.join("preroll.score.yaml");
+    let definition = fixture_path("instruments/basic-poly-synth.json");
+    let doc = json!({
+        "meta":{"title":"Preroll","bpm":120,"meter":"4/4","tuning":"12edo","gate":1,"fade_out_seconds":0},
+        "form":[{"section":"phrase","bars":4,"tonic":"C","scale":"ionian"}],
+        "sections":{"phrase":{"placements":[
+            {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5},
+            {"instrument":"part","degree":"3","at":{"bar":3,"step":1},"duration_quarters":1}
+        ]}},
+        "instruments":{
+            "part":{"definition":definition},
+            "silent":{"definition":definition}
+        }
+    });
+    std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");
+    score
+}
+
 fn write_multi_channel_midi(directory: &std::path::Path) -> std::path::PathBuf {
     let path = directory.join("multi-channel.mid");
     let mut smf = Smf::new(Header::new(
@@ -283,24 +302,9 @@ fn score_commands_share_the_timeline_and_preserve_midi_controls() {
 #[test]
 fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     let directory = tempdir().expect("directory");
-    let score = directory.path().join("preroll.score.yaml");
+    let score = write_preroll_score(directory.path());
     let full_output = directory.path().join("full.wav");
-    let analyzed_output = directory.path().join("analyzed.wav");
     let partial_output = directory.path().join("partial.wav");
-    let definition = fixture_path("instruments/basic-poly-synth.json");
-    let doc = json!({
-        "meta":{"title":"Preroll","bpm":120,"meter":"4/4","tuning":"12edo","gate":1,"fade_out_seconds":0},
-        "form":[{"section":"phrase","bars":4,"tonic":"C","scale":"ionian"}],
-        "sections":{"phrase":{"placements":[
-            {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5},
-            {"instrument":"part","degree":"3","at":{"bar":3,"step":1},"duration_quarters":1}
-        ]}},
-        "instruments":{
-            "part":{"definition":definition},
-            "silent":{"definition":definition}
-        }
-    });
-    std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");
     let render = |output: &std::path::Path, extra: &[&str]| {
         let mut command = Command::cargo_bin("sonalloy").expect("binary");
         command
@@ -326,9 +330,57 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     assert_eq!(full["frames"], 384_000);
     assert_eq!(partial["frames"], 192_000);
 
-    let analyzed: serde_json::Value =
-        serde_json::from_slice(&render(&analyzed_output, &["--analyze"]))
-            .expect("analyzed render report");
+    let read = |path: &std::path::Path| {
+        hound::WavReader::open(path)
+            .expect("WAV")
+            .into_samples::<f32>()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>()
+    };
+    let full_samples = read(&full_output);
+    let partial_samples = read(&partial_output);
+    assert_eq!(partial_samples.len(), 192_000 * 2);
+    assert_eq!(
+        &full_samples[96_000 * 2..288_000 * 2],
+        partial_samples.as_slice(),
+        "preroll output is bit-exact with the matching full-render interval"
+    );
+}
+
+#[test]
+fn score_analysis_reports_loudness_when_ffmpeg_is_available() {
+    if !std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_ok_and(|output| output.status.success())
+    {
+        return;
+    }
+
+    let directory = tempdir().expect("directory");
+    let score = write_preroll_score(directory.path());
+    let full_output = directory.path().join("full.wav");
+    let analyzed_output = directory.path().join("analyzed.wav");
+    let display_output = directory.path().join("display.wav");
+    let render = |output: &std::path::Path, analyze: bool, json: bool| {
+        let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command
+            .args(["render", "score"])
+            .arg(&score)
+            .arg("--output")
+            .arg(output)
+            .args(["--tail", "0"]);
+        if analyze {
+            command.arg("--analyze");
+        }
+        if json {
+            command.arg("--json");
+        }
+        command.assert().success().get_output().stdout.clone()
+    };
+    render(&full_output, false, false);
+    let analyzed: serde_json::Value = serde_json::from_slice(&render(&analyzed_output, true, true))
+        .expect("analyzed render report");
     let analyzed_parts = analyzed["parts"].as_array().expect("part reports");
     let part = analyzed_parts
         .iter()
@@ -359,6 +411,13 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     assert!(part["loudness"]["integrated_lufs"].is_number());
     assert_eq!(silent_part["loudness"]["status"], "silent");
 
+    let display = String::from_utf8(render(&display_output, true, false)).expect("text output");
+    assert!(display.contains("part loudness (Integrated LUFS / True Peak dBTP):"));
+    assert!(display.contains("section loudness (Integrated LUFS / True Peak dBTP):"));
+    assert!(display.contains("  part: measured | "));
+    assert!(display.contains("    part: measured | "));
+    assert!(display.contains("    silent: silent | — LUFS | — dBTP"));
+
     let read = |path: &std::path::Path| {
         hound::WavReader::open(path)
             .expect("WAV")
@@ -368,16 +427,9 @@ fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
     };
     let full_samples = read(&full_output);
     let analyzed_samples = read(&analyzed_output);
-    let partial_samples = read(&partial_output);
     assert_eq!(
         full_samples, analyzed_samples,
         "analysis preserves rendered audio"
-    );
-    assert_eq!(partial_samples.len(), 192_000 * 2);
-    assert_eq!(
-        &full_samples[96_000 * 2..288_000 * 2],
-        partial_samples.as_slice(),
-        "preroll output is bit-exact with the matching full-render interval"
     );
 }
 

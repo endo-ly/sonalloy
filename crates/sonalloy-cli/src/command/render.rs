@@ -1918,6 +1918,38 @@ fn run_render_score(args: &RenderScoreArgs) -> ExitCode {
                 );
             }
         }
+        if args.analyze {
+            println!("part loudness (Integrated LUFS / True Peak dBTP):");
+            for part in &report.parts {
+                if let Some(loudness) = &part.loudness {
+                    print_score_loudness_row(
+                        &format!("  {}", part.id),
+                        loudness.status,
+                        loudness.integrated_lufs,
+                        loudness.true_peak_db,
+                    );
+                }
+            }
+            if let Some(sections) = &report.sections {
+                println!("section loudness (Integrated LUFS / True Peak dBTP):");
+                for section in sections {
+                    print_score_loudness_row(
+                        &format!("  {} #{}", section.section, section.occurrence),
+                        section.loudness_status,
+                        section.integrated_lufs,
+                        section.true_peak_db,
+                    );
+                    for part in &section.parts {
+                        print_score_loudness_row(
+                            &format!("    {}", part.id),
+                            part.loudness.status,
+                            part.loudness.integrated_lufs,
+                            part.loudness.true_peak_db,
+                        );
+                    }
+                }
+            }
+        }
         if let Some(master) = &report.master {
             println!(
                 "master target: {:.1} LUFS, {:.2} dBTP",
@@ -2088,6 +2120,23 @@ fn print_loudness_measurement(label: &str, measurement: &LoudnessMeasurement) {
         "{label}: {:?} LUFS, {:?} dBTP, {:?} LU LRA",
         measurement.integrated_lufs, measurement.true_peak_db, measurement.loudness_range_lu
     );
+}
+
+fn print_score_loudness_row(
+    label: &str,
+    status: performance::LoudnessStatus,
+    integrated_lufs: Option<f64>,
+    true_peak_db: Option<f64>,
+) {
+    let status = match status {
+        performance::LoudnessStatus::Measured => "measured",
+        performance::LoudnessStatus::Silent => "silent",
+        performance::LoudnessStatus::Unmeasurable => "unmeasurable",
+    };
+    let integrated_lufs =
+        integrated_lufs.map_or_else(|| "—".to_owned(), |value| format!("{value:.2}"));
+    let true_peak_db = true_peak_db.map_or_else(|| "—".to_owned(), |value| format!("{value:+.2}"));
+    println!("{label}: {status} | {integrated_lufs} LUFS | {true_peak_db} dBTP");
 }
 
 #[derive(Debug, Serialize)]

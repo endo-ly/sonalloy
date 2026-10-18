@@ -353,7 +353,7 @@ Analysisの主なFieldは次のとおりです。
 
 帯域Energyは既存のMono Spectrumと同じ窓から計算し、20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzの帯域へFFT Binを一度ずつ集計します。`mean_square`は窓のPowerを補正した平均二乗値、`power_dbfs`はそのPowerのdBFS、`energy_ratio`は全正周波数Powerに対する比率です。上端はNyquistへ切り詰め、利用できるBinがない帯域は`null`を返します。
 
-単独RenderとScore全体のMix / 完成WAVはFFmpegで測定します。`render score --analyze`のPart全体、Section内Part、Section MixにはそれぞれLUFSとTrue Peakを返します。Score全体の音量測定にFFmpegを使うため、`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Score全体では`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。
+単独RenderとScore全体のMix / 完成WAVはFFmpegで測定します。`render score --analyze`のPart全体、Section内Part、Section MixにはそれぞれLUFSとTrue Peakを返します。通常表示では、Part全体とSection Mix / Section内Partの状態、LUFS、True Peakを一覧できます。Score全体の音量測定にFFmpegを使うため、`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Score全体では`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
