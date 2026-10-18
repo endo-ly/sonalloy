@@ -22,7 +22,7 @@ pub(super) enum ScoreCommand {
     Validate(ScoreArgs),
     /// Inspect the resolved timeline and instrument events.
     #[command(
-        long_about = "Expand the Score and inspect its resolved timeline. The default output lists event details; `--summary` reports counts and duration for the whole Score, sections, and instruments. `--summary` can be combined with `--json`. `--preview-json` emits normalized browser preview data and requires a Score with one instrument, one constant tempo, and one time signature; it cannot be combined with `--json` or `--summary`."
+        long_about = "Expand the Score and inspect its resolved timeline. The default output lists event details; `--summary` reports counts and duration for the whole Score, sections, and instruments. `--summary` can be combined with `--json`. `--preview-json` emits normalized browser preview data and requires one instrument, one constant tempo and time signature, and only 1..=32 note events. The Score must be at most 10 seconds, use 30..=300 BPM, and have a meter numerator no greater than 32. It cannot be combined with `--json` or `--summary`."
     )]
     Inspect(InspectArgs),
     /// Export a complete Type 1 Standard MIDI File.
@@ -38,7 +38,7 @@ pub(super) enum ScoreCommand {
     },
     /// Import one MIDI note channel into Score YAML without quantization.
     #[command(
-        long_about = "Import a Standard MIDI File into Score YAML while preserving its event timing, tempo changes, and time-signature changes. The generated Score references the supplied instrument Definition and uses `--tonic` as its tonal center. If the file has notes on one channel, that channel is selected automatically; files with multiple note channels require `--channel` (1..=16). Unsupported MIDI events are ignored with diagnostics. The destination must not already exist."
+        long_about = "Import a Standard MIDI File into Score YAML without quantizing note timing. Notes, tempo and time-signature changes, sustain pedal, pitch bend, mod wheel, and channel aftertouch are preserved. The generated Score references the supplied instrument Definition and uses `--tonic` as its tonal center. If the file has notes on one channel, that channel is selected automatically; files with multiple note channels require `--channel` (1..=16). Unsupported MIDI events are ignored with diagnostics. The destination must not already exist."
     )]
     ImportMidi {
         /// Standard MIDI File to import.
