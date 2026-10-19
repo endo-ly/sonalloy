@@ -96,88 +96,148 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
     visit(dict, name, drums, path, &mut Vec::new())
 }
 
-pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Vec<Value>> {
-    fn located_bar(value: &Value, origin: &str, source_bar: usize) -> Value {
-        serde_json::json!({
-            "resolved_bar": value,
-            "$origin": origin,
-            "$source_bar": source_bar
-        })
-    }
+#[derive(Clone)]
+pub(super) struct MelodyItem {
+    pub(super) text: String,
+    pub(super) path: String,
+    pub(super) shift: super::time::Quarter,
+    pub(super) source_item: usize,
+    pub(super) replaced: Option<Box<MelodyItem>>,
+}
 
-    fn visit(dict: &Value, name: &str, path: &str, stack: &mut Vec<String>) -> Result<Vec<Value>> {
-        if stack.iter().any(|s| s == name) {
-            return Err(Error::new(path, format!("cyclic melody reference {name}")));
-        }
-        let mut value = dict;
-        for key in name.split('.') {
-            value = value
-                .get(key)
-                .ok_or_else(|| Error::new(path, format!("undefined melody {name}")))?;
-        }
-        stack.push(name.into());
-        let result = if let Some(list) = value.as_array() {
-            let mut bars = Vec::new();
-            for (bar_index, item) in list.iter().enumerate() {
-                if item.is_string() {
-                    bars.push(located_bar(
-                        item,
-                        &format!("melodies.{name}[{bar_index}]"),
-                        bar_index + 1,
-                    ));
-                    continue;
-                }
-                fields(item, &["use", "bars", "shift_steps"], path)?;
-                let use_name = text_field(item, "use", path)?;
-                let referenced = visit(dict, use_name, path, stack)?;
-                let range = array(required(item, "bars", path)?, path)?;
-                if range.len() != 2 {
-                    return Err(Error::new(path, "bars must be [start,end]"));
-                }
-                let start = range[0]
-                    .as_u64()
-                    .and_then(|n| usize::try_from(n).ok())
-                    .filter(|n| *n > 0)
-                    .ok_or_else(|| Error::new(path, "bar start must be positive"))?;
-                let end = range[1]
-                    .as_u64()
-                    .and_then(|n| usize::try_from(n).ok())
-                    .ok_or_else(|| Error::new(path, "bar end must be positive"))?;
-                if start > end || end > referenced.len() {
-                    return Err(Error::new(path, "melody slice is outside source bars"));
-                }
-                let shift = item.get("shift_steps").cloned().unwrap_or(Value::from(0));
-                for bar in &referenced[start - 1..end] {
-                    bars.push(serde_json::json!({
-                        "resolved_bar": bar,
-                        "shift_steps": shift,
-                        "$origin": bar["$origin"],
-                        "$source_bar": bar["$source_bar"]
-                    }));
-                }
-            }
-            bars
-        } else {
-            fields(value, &["from", "replace"], path)?;
-            let mut bars = visit(dict, text_field(value, "from", path)?, path, stack)?;
-            if let Some(replace) = value.get("replace") {
-                for (key, bar) in object(replace, path)? {
-                    let index = key
-                        .parse::<usize>()
-                        .ok()
-                        .filter(|n| *n > 0 && *n <= bars.len())
-                        .ok_or_else(|| Error::new(path, "replacement bar is outside melody"))?;
-                    string(bar, path)?;
-                    bars[index - 1] =
-                        located_bar(bar, &format!("melodies.{name}.replace.{index}"), index);
-                }
-            }
-            bars
-        };
-        stack.pop();
-        Ok(result)
+pub(super) struct Melody {
+    pub(super) items: Vec<MelodyItem>,
+    pub(super) chord_bass: bool,
+    pub(super) pickup: super::time::Quarter,
+}
+
+pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Melody> {
+    visit_melody(dict, name, path, &mut Vec::new())
+}
+
+fn visit_melody(dict: &Value, name: &str, path: &str, stack: &mut Vec<String>) -> Result<Melody> {
+    if stack.len() >= 128 || stack.iter().any(|s| s == name) {
+        return Err(Error::new(path, format!("cyclic melody reference {name}")));
     }
-    visit(dict, name, path, &mut Vec::new())
+    let mut value = dict;
+    for key in name.split('.') {
+        value = value
+            .get(key)
+            .ok_or_else(|| Error::new(path, format!("undefined melody {name}")))?;
+    }
+    let path = &format!("melodies.{name}");
+    stack.push(name.into());
+    if !value.is_array() {
+        fields(
+            value,
+            &["items", "from", "replace", "relative_to", "pickup_steps"],
+            path,
+        )?;
+        if value.get("items").is_some() == value.get("from").is_some() {
+            return Err(Error::new(path, "expected exactly one of items or from"));
+        }
+        if value.get("replace").is_some() && value.get("from").is_none() {
+            return Err(Error::new(path, "replace requires from"));
+        }
+    }
+    let mut result = if let Some(from) = value.get("from") {
+        visit_melody(dict, string(from, path)?, path, stack)?
+    } else {
+        let list = if value.is_array() {
+            value
+        } else {
+            required(value, "items", path)?
+        };
+        let items = melody_items(dict, list, value.is_array(), path, stack)?;
+        Melody {
+            items,
+            chord_bass: false,
+            pickup: super::q(0, 1),
+        }
+    };
+    if let Some(relative) = value.get("relative_to") {
+        result.chord_bass = match string(relative, path)? {
+            "tonic" => false,
+            "chord_bass" => true,
+            _ => return Err(Error::new(path, "relative_to must be tonic or chord_bass")),
+        };
+    }
+    if let Some(pickup) = value.get("pickup_steps") {
+        result.pickup = super::time::rational(pickup, path)? / super::q(4, 1);
+        if result.pickup <= super::q(0, 1) {
+            return Err(Error::new(path, "pickup_steps must be positive"));
+        }
+    }
+    if let Some(replace) = value.get("replace") {
+        for (key, text) in object(replace, path)? {
+            let origin = format!("{path}.replace.{key}");
+            let index = key
+                .parse::<usize>()
+                .ok()
+                .filter(|i| *i > 0 && *i <= result.items.len())
+                .ok_or_else(|| Error::new(&origin, "replacement item is outside melody"))?;
+            let previous = result.items[index - 1].clone();
+            result.items[index - 1] = MelodyItem {
+                text: string(text, &origin)?.into(),
+                path: origin,
+                shift: previous.shift.clone(),
+                source_item: index,
+                replaced: Some(Box::new(previous)),
+            };
+        }
+    }
+    stack.pop();
+    Ok(result)
+}
+
+fn melody_items(
+    dict: &Value,
+    list: &Value,
+    bare: bool,
+    path: &str,
+    stack: &mut Vec<String>,
+) -> Result<Vec<MelodyItem>> {
+    let mut items = Vec::new();
+    for (index, item) in array(list, path)?.iter().enumerate() {
+        let origin = if bare {
+            format!("{path}[{index}]")
+        } else {
+            format!("{path}.items[{index}]")
+        };
+        if let Some(text) = item.as_str() {
+            items.push(MelodyItem {
+                text: text.into(),
+                path: origin,
+                shift: super::q(0, 1),
+                source_item: index + 1,
+                replaced: None,
+            });
+        } else {
+            fields(item, &["use", "items", "shift_steps"], &origin)?;
+            let source = visit_melody(dict, text_field(item, "use", &origin)?, &origin, stack)?;
+            let range = array(required(item, "items", &origin)?, &origin)?;
+            if range.len() != 2 {
+                return Err(Error::new(&origin, "items must be [start,end]"));
+            }
+            let start = usize::try_from(integer(&range[0], &origin)?).unwrap_or(0);
+            let end = usize::try_from(integer(&range[1], &origin)?).unwrap_or(0);
+            if start == 0 || end < start || end > source.items.len() {
+                return Err(Error::new(&origin, "item range is outside melody"));
+            }
+            let shift = item
+                .get("shift_steps")
+                .map_or(Ok(super::q(0, 1)), |v| super::time::rational(v, &origin))?
+                / super::q(4, 1);
+            for mut item in source.items[start - 1..end].iter().cloned() {
+                item.shift += &shift;
+                items.push(item);
+            }
+        }
+    }
+    if items.is_empty() {
+        return Err(Error::new(path, "melody requires at least one item"));
+    }
+    Ok(items)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -192,7 +252,6 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
             "melodies",
             "scale_definitions",
             "drums",
-            "bass",
             "comp",
             "arps",
             "counters",
@@ -319,7 +378,7 @@ fn validate_melodies(root: &Value, node: &Value, prefix: &str) -> Result<()> {
         } else {
             format!("{prefix}.{name}")
         };
-        if value.is_array() || value.get("from").is_some() || value.get("replace").is_some() {
+        if value.is_array() || value.get("from").is_some() || value.get("items").is_some() {
             melody(root, &name, &format!("melodies.{name}"))?;
         } else {
             validate_melodies(root, value, &name)?;
@@ -351,6 +410,9 @@ fn event(v: &Value, path: &str) -> Result<()> {
             "duration_steps",
             "duration_quarters",
             "parameter",
+            "control",
+            "from",
+            "to",
             "native_value",
             "from_value",
             "to_value",
@@ -389,6 +451,7 @@ pub(super) fn event_kind(v: &Value, path: &str) -> Result<()> {
         "degree" => &["instrument", "degree", "velocity"],
         "silence" => &["except_instruments"],
         "part_window" => &["instrument", "bars"],
+        "dynamics" => &["instrument", "from", "to"],
         "step_roll" => &[
             "instrument",
             "bar",
@@ -410,13 +473,39 @@ pub(super) fn event_kind(v: &Value, path: &str) -> Result<()> {
         "sustain_pedal" => &["instrument", "down"],
         "pitch_bend" | "mod_wheel" | "aftertouch" => &["instrument", "value"],
         "parameter_change" => &["instrument", "parameter", "native_value"],
-        "automation" => &["instrument", "parameter", "from_value", "to_value"],
+        "automation" => &[
+            "instrument",
+            "parameter",
+            "control",
+            "from_value",
+            "to_value",
+        ],
         _ => return Err(Error::new(format!("{path}.kind"), "unknown event kind")),
     };
+    if kind == "automation" && v.get("parameter").is_some() == v.get("control").is_some() {
+        return Err(Error::new(
+            path,
+            "automation requires exactly one of parameter or control",
+        ));
+    }
+    if let Some(control) = v.get("control") {
+        if !["mod_wheel", "aftertouch", "pitch_bend"].contains(&string(control, path)?) {
+            return Err(Error::new(path, "unknown automation control"));
+        }
+    }
+    if kind == "dynamics" {
+        for key in ["from", "to"] {
+            if !(-126..=126).contains(&integer(required(v, key, path)?, path)?) {
+                return Err(Error::new(path, "dynamics values must be -126..126"));
+            }
+        }
+    }
     let mut allowed = vec!["kind"];
     allowed.extend_from_slice(specific);
     for key in specific {
-        if !matches!(*key, "velocity" | "riser" | "except_instruments") {
+        if !(matches!(*key, "velocity" | "riser" | "except_instruments")
+            || kind == "automation" && matches!(*key, "parameter" | "control"))
+        {
             required(v, key, path)?;
         }
     }
@@ -424,13 +513,30 @@ pub(super) fn event_kind(v: &Value, path: &str) -> Result<()> {
         allowed.push("at");
         required(v, "at", path)?;
     }
-    if matches!(kind, "hit" | "hits" | "degree" | "silence" | "automation") {
+    if matches!(
+        kind,
+        "hit" | "hits" | "degree" | "silence" | "automation" | "dynamics"
+    ) {
         allowed.extend(["duration_steps", "duration_quarters"]);
     }
     fields(v, &allowed, path)?;
     if kind == "hits" && array(required(v, "instruments", path)?, path)?.is_empty() {
         return Err(Error::new(path, "hits requires at least one instrument"));
     }
+    validate_event_values(v, kind, path)?;
+    if matches!(kind, "silence" | "automation" | "dynamics")
+        && v.get("duration_steps").is_none()
+        && v.get("duration_quarters").is_none()
+    {
+        return Err(Error::new(
+            path,
+            "duration_steps or duration_quarters is required",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_event_values(v: &Value, kind: &str, path: &str) -> Result<()> {
     if let Some(down) = v.get("down") {
         if !down.is_boolean() {
             return Err(Error::new(format!("{path}.down"), "expected a boolean"));
@@ -450,15 +556,6 @@ pub(super) fn event_kind(v: &Value, path: &str) -> Result<()> {
                 format!("expected {min}..1"),
             ));
         }
-    }
-    if matches!(kind, "silence" | "automation")
-        && v.get("duration_steps").is_none()
-        && v.get("duration_quarters").is_none()
-    {
-        return Err(Error::new(
-            path,
-            "duration_steps or duration_quarters is required",
-        ));
     }
     Ok(())
 }
@@ -500,10 +597,8 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 "from",
                 "chords",
                 "chord_changes",
-                "lead",
+                "lines",
                 "drums",
-                "bass",
-                "bass_overrides",
                 "comp",
                 "pad",
                 "arp",
@@ -519,7 +614,7 @@ fn validate_sections(sections: &Value) -> Result<()> {
         for field in ["pad", "arp", "counter"] {
             if let Some(v) = section.get(field) {
                 let allowed = if field == "counter" {
-                    vec!["instrument", "pattern"]
+                    vec!["instrument", "pattern", "follows"]
                 } else {
                     vec!["instrument", "pattern", "voicing"]
                 };
@@ -527,10 +622,7 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 validate_voicing(v, &format!("{path}.{field}"))?;
             }
         }
-        validate_lead(section, &path)?;
-        if let Some(bass) = section.get("bass") {
-            fields(bass, &["pattern", "add_parts"], &format!("{path}.bass"))?;
-        }
+        validate_lines(section, &path)?;
         validate_placements(section, &path)?;
         if let Some(events) = section.get("events") {
             for (i, e) in array(events, &path)?.iter().enumerate() {
@@ -542,13 +634,6 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 let p = format!("{path}.chord_changes[{i}]");
                 fields(e, &["at", "chord"], &p)?;
                 position(required(e, "at", &p)?, &format!("{p}.at"))?;
-            }
-        }
-        if let Some(overrides) = section.get("bass_overrides") {
-            for (i, e) in array(overrides, &path)?.iter().enumerate() {
-                let p = format!("{path}.bass_overrides[{i}]");
-                fields(e, &["when", "parts"], &p)?;
-                validate_bar_condition(required(e, "when", &p)?, &format!("{p}.when"))?;
             }
         }
     }
@@ -568,7 +653,8 @@ fn validate_placements(section: &Value, path: &str) -> Result<()> {
                         "melody",
                         "degree",
                         "chord",
-                        "bass_note",
+                        "register",
+                        "tonic",
                         "velocity",
                         "duration_steps",
                         "duration_quarters",
@@ -584,6 +670,7 @@ fn validate_placements(section: &Value, path: &str) -> Result<()> {
                     &p,
                 )?;
                 validate_voicing(item, &p)?;
+                validate_pitch_settings(item, &p)?;
                 position(required(item, "at", &p)?, &format!("{p}.at"))?;
                 if let Some(slice) = item.get("slice_steps") {
                     fields(slice, &["start", "count"], &format!("{p}.slice_steps"))?;
@@ -594,25 +681,86 @@ fn validate_placements(section: &Value, path: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_lead(section: &Value, path: &str) -> Result<()> {
-    if let Some(lead) = section.get("lead") {
-        fields(
-            lead,
-            &["instrument", "melody", "slice_bars", "layers"],
-            &format!("{path}.lead"),
-        )?;
-        if let Some(layers) = lead.get("layers") {
-            for (i, layer) in array(layers, path)?.iter().enumerate() {
-                fields(
-                    layer,
-                    &["instrument", "transpose", "gain_db"],
-                    &format!("{path}.lead.layers[{i}]"),
-                )?;
+fn validate_lines(section: &Value, path: &str) -> Result<()> {
+    if let Some(lines) = section.get("lines") {
+        for (name, line) in object(lines, path)? {
+            let path = format!("{path}.lines.{name}");
+            fields(
+                line,
+                &[
+                    "instrument",
+                    "melody",
+                    "slice_items",
+                    "loop",
+                    "register",
+                    "tonic",
+                    "transpose",
+                    "gain_db",
+                ],
+                &path,
+            )?;
+            validate_pitch_settings(line, &path)?;
+            if let Some(value) = line.get("loop") {
+                if !value.is_boolean() {
+                    return Err(Error::new(&path, "loop must be boolean"));
+                }
             }
         }
     }
     Ok(())
 }
+fn validate_pitch_settings(value: &Value, path: &str) -> Result<()> {
+    if let Some(register) = value.get("register") {
+        if !["melody", "bass"].contains(&string(register, path)?) {
+            return Err(Error::new(
+                format!("{path}.register"),
+                "register must be melody or bass",
+            ));
+        }
+    }
+    if let Some(tonic) = value.get("tonic") {
+        super::syntax::tonic(string(tonic, path)?).map_err(|e| e.at(&format!("{path}.tonic")))?;
+    }
+    Ok(())
+}
+
+fn validate_articulations(v: &Value, path: &str) -> Result<()> {
+    if let Some(articulations) = v.get("articulations") {
+        fields(
+            articulations,
+            &["accent", "staccato", "tenuto"],
+            &format!("{path}.articulations"),
+        )?;
+        for (name, settings) in object(articulations, path)? {
+            let p = format!("{path}.articulations.{name}");
+            fields(
+                settings,
+                if name == "accent" {
+                    &["velocity"]
+                } else {
+                    &["gate", "velocity"]
+                },
+                &p,
+            )?;
+            if let Some(value) = settings.get("velocity") {
+                if !(-126..=126).contains(&integer(value, &p)?) {
+                    return Err(Error::new(&p, "articulation velocity must be -126..126"));
+                }
+            }
+            if let Some(value) = settings.get("gate") {
+                let gate = super::time::rational(value, &p)?;
+                if gate <= super::q(0, 1) || gate > super::q(1, 1) {
+                    return Err(Error::new(
+                        &p,
+                        "gate must be greater than zero and at most one",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_instruments(instruments: &Value) -> Result<()> {
     if object(instruments, "instruments")?.is_empty() {
         return Err(Error::new(
@@ -631,6 +779,10 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
                 "pan",
                 "role",
                 "voicing_floor_midi",
+                "voicing_ceiling_midi",
+                "articulations",
+                "swing",
+                "timing_offset_steps",
                 "voicing",
                 "gate",
                 "trigger_note_midi",
@@ -651,6 +803,13 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
             ));
         }
         let path = format!("instruments.{name}");
+        if let Some(value) = v.get("swing") {
+            super::time::Swing::parse(value, &format!("{path}.swing"))?;
+        }
+        if let Some(value) = v.get("timing_offset_steps") {
+            super::time::rational(value, &format!("{path}.timing_offset_steps"))?;
+        }
+        validate_articulations(v, &path)?;
         validate_voicing(v, &path)?;
         if let Some(value) = v.get("gate") {
             let gate = super::time::rational(value, &format!("{path}.gate"))?;
@@ -677,6 +836,7 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
         }
         for key in [
             "voicing_floor_midi",
+            "voicing_ceiling_midi",
             "trigger_note_midi",
             "bass_floor_midi",
             "bass_ceiling_midi",
@@ -690,6 +850,7 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
                 }
             }
         }
+        validate_voicing_range(v, &path)?;
         if super::optional_int(v, "bass_floor_midi", 28, &path)?
             > super::optional_int(v, "bass_ceiling_midi", 39, &path)?
         {
@@ -698,9 +859,20 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
     }
     Ok(())
 }
+fn validate_voicing_range(v: &Value, path: &str) -> Result<()> {
+    if let Some(ceiling) = v.get("voicing_ceiling_midi") {
+        if integer(ceiling, path)? <= super::optional_int(v, "voicing_floor_midi", 48, path)? {
+            return Err(Error::new(
+                format!("{path}.voicing_ceiling_midi"),
+                "voicing ceiling must be above floor",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_materials(doc: &Value) -> Result<()> {
     for (key, allowed) in [
-        ("bass", vec!["parts", "choices", "relative_to"]),
         (
             "arps",
             vec!["order", "voicing_floor_midi", "retrigger_each_step"],
@@ -711,7 +883,7 @@ fn validate_materials(doc: &Value) -> Result<()> {
             for (name, v) in object(dict, key)? {
                 let path = format!("{key}.{name}");
                 fields(v, &allowed, &path)?;
-                validate_material(doc, key, v, &path)?;
+                validate_material(key, v, &path)?;
             }
         }
     }
@@ -720,12 +892,12 @@ fn validate_materials(doc: &Value) -> Result<()> {
             let p = format!("drums.{name}");
             fields(v, &["from", "parts", "overrides"], &p)?;
             let resolved = inherit(dict, name, true, &p)?;
-            validate_parts(doc, required(&resolved, "parts", &p)?, &p)?;
+            validate_parts(doc, required(&resolved, "parts", &p)?, &p, true)?;
             if let Some(list) = v.get("overrides") {
                 for (i, v) in array(list, &p)?.iter().enumerate() {
                     let p = format!("{p}.overrides[{i}]");
                     fields(v, &["when", "parts"], &p)?;
-                    validate_parts(doc, required(v, "parts", &p)?, &p)?;
+                    validate_parts(doc, required(v, "parts", &p)?, &p, false)?;
                     validate_bar_condition(required(v, "when", &p)?, &format!("{p}.when"))?;
                 }
             }
@@ -738,7 +910,11 @@ fn validate_materials(doc: &Value) -> Result<()> {
     }
     if let Some(changes) = doc.get("time_changes") {
         for (i, v) in array(changes, "time_changes")?.iter().enumerate() {
-            fields(v, &["at_quarters", "bpm"], &format!("time_changes[{i}]"))?;
+            fields(
+                v,
+                &["at_quarters", "bpm", "over_quarters"],
+                &format!("time_changes[{i}]"),
+            )?;
         }
     }
     if let Some(transitions) = doc.get("transitions") {
@@ -754,7 +930,7 @@ fn validate_materials(doc: &Value) -> Result<()> {
 }
 
 fn validate_bar_condition(v: &Value, path: &str) -> Result<()> {
-    fields(v, &["odd", "even", "every", "bar"], path)
+    fields(v, &["odd", "even", "every", "bars"], path)
 }
 fn instrument_ref(doc: &Value, value: &Value, path: &str) -> Result<()> {
     let id = string(value, path)?;
@@ -776,31 +952,24 @@ fn material_ref(doc: &Value, category: &str, value: &Value, path: &str) -> Resul
     }
     Ok(())
 }
-fn validate_parts(doc: &Value, parts: &Value, path: &str) -> Result<()> {
+fn validate_parts(doc: &Value, parts: &Value, path: &str, phrases: bool) -> Result<()> {
     for (id, value) in object(parts, path)? {
         instrument_ref(doc, &Value::String(id.clone()), path)?;
-        string(value, path)?;
+        if let Some(list) = value.as_array().filter(|_| phrases) {
+            if list.is_empty() {
+                return Err(Error::new(path, "drum phrase must not be empty"));
+            }
+            for item in list {
+                string(item, path)?;
+            }
+        } else {
+            string(value, path)?;
+        }
     }
     Ok(())
 }
-fn validate_material(doc: &Value, category: &str, value: &Value, path: &str) -> Result<()> {
+fn validate_material(category: &str, value: &Value, path: &str) -> Result<()> {
     match category {
-        "bass" => {
-            if let Some(value) = value.get("relative_to") {
-                if !["tonic", "chord_bass"].contains(&string(value, path)?) {
-                    return Err(Error::new(path, "relative_to must be tonic or chord_bass"));
-                }
-            }
-            validate_parts(doc, required(value, "parts", path)?, path)?;
-            if let Some(choices) = value.get("choices") {
-                for (name, choice) in object(choices, path)? {
-                    let path = format!("{path}.choices.{name}");
-                    fields(choice, &["odd", "even"], &path)?;
-                    text_field(choice, "odd", &path)?;
-                    text_field(choice, "even", &path)?;
-                }
-            }
-        }
         "arps" => {
             text_field(value, "order", path)?;
             if let Some(retrigger) = value.get("retrigger_each_step") {
@@ -815,13 +984,16 @@ fn validate_material(doc: &Value, category: &str, value: &Value, path: &str) -> 
             }
         }
         "counters" => {
-            if text_field(value, "when", path)? != "lead_silent_full_beat" {
-                return Err(Error::new(path, "expected lead_silent_full_beat"));
+            if text_field(value, "when", path)? != "silent_full_beat" {
+                return Err(Error::new(path, "expected silent_full_beat"));
             }
             let cells: Vec<_> = text_field(value, "cell", path)?
                 .split_whitespace()
                 .enumerate()
                 .map(|(i, token)| {
+                    if token != "." && token != "-" {
+                        super::syntax::degree(token).map_err(|e| e.at(path))?;
+                    }
                     Ok((
                         super::q(
                             i64::try_from(i)
@@ -848,12 +1020,22 @@ fn validate_material(doc: &Value, category: &str, value: &Value, path: &str) -> 
     Ok(())
 }
 fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Result<()> {
-    if let Some(lead) = section.get("lead") {
-        instrument_ref(doc, required(lead, "instrument", path)?, path)?;
-        melody(&doc["melodies"], text_field(lead, "melody", path)?, path)?;
-        if let Some(layers) = lead.get("layers") {
-            for layer in array(layers, path)? {
-                instrument_ref(doc, required(layer, "instrument", path)?, path)?;
+    if let Some(lines) = section.get("lines") {
+        for (name, line) in object(lines, path)? {
+            let p = format!("{path}.lines.{name}");
+            instrument_ref(doc, required(line, "instrument", &p)?, &p)?;
+            melody(&doc["melodies"], text_field(line, "melody", &p)?, &p)?;
+        }
+    }
+    if let Some(counter) = section.get("counter") {
+        let p = format!("{path}.counter.follows");
+        let follows = array(required(counter, "follows", path)?, &p)?;
+        if follows.is_empty() {
+            return Err(Error::new(&p, "follows must name at least one line"));
+        }
+        for name in follows {
+            if section["lines"].get(string(name, &p)?).is_none() {
+                return Err(Error::new(&p, "undefined melody line"));
             }
         }
     }
@@ -875,12 +1057,6 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
             }
         }
     }
-    if let Some(bass) = section.get("bass") {
-        material_ref(doc, "bass", required(bass, "pattern", path)?, path)?;
-        if let Some(parts) = bass.get("add_parts") {
-            validate_parts(doc, parts, path)?;
-        }
-    }
     if let Some(drums) = section.get("drums") {
         material_ref(doc, "drums", drums, path)?;
     }
@@ -895,7 +1071,7 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
                 melody(&doc["melodies"], string(name, &path)?, &path)?;
             }
             if let Some(note) = placement.get("degree") {
-                super::syntax::degree(string(note, &path)?).map_err(|e| e.at(&path))?;
+                super::syntax::pitch(string(note, &path)?).map_err(|e| e.at(&path))?;
             }
             if let Some(chord) = placement.get("chord") {
                 super::syntax::chord(string(chord, &path)?).map_err(|e| e.at(&path))?;

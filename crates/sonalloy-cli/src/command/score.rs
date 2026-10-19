@@ -123,7 +123,7 @@ pub(super) fn run(command: ScoreCommand) -> ExitCode {
 fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
     match command {
         ScoreCommand::Init { path } => {
-            let doc = json!({"meta":{"title":"New score","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lead":{"instrument":"lead","melody":"phrase"}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1 - - -"]},"instruments":{"lead":{"preset":"LEAD/001-analog-saw-lead"}}});
+            let doc = json!({"meta":{"title":"New score","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lines":{"main":{"instrument":"lead","melody":"phrase"}}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1 - - -"]},"instruments":{"lead":{"preset":"LEAD/001-analog-saw-lead"}}});
             write_score(&path, &doc)?;
             Ok(json!({"status":"ok","output":path}))
         }

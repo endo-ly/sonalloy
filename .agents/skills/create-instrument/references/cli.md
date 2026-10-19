@@ -75,7 +75,7 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 
 `score validate --json`は成功時に`status`、セクション数、楽器数、`diagnostics`を返します。Score YAMLの構文、参照、演奏イベント、音源能力、Audio配線を検証します。
 
-通常のテキスト出力は曲名、演奏時間、Section構成、楽器ごとの音符数を示し、個々のEventは表示しません。`score inspect --json`は展開済みScoreを返し、Section、Instrument、Lane、PartごとのEvent、時間情報、診断を含みます。Scoreの文法と演奏意味論は[Score仕様](score_spec.md)を参照してください。
+通常のテキスト出力は曲名、演奏時間、Section構成、楽器ごとの音符数を示し、個々のEventは表示しません。`score inspect --json`は展開済みScoreを返し、Section、Instrument、Lane、PartごとのEvent、時間情報、診断を含みます。各音の`sources[].spelling`は旋律の音符表記を保持し、和音から生成した音では元のコード表記を保持します。Scoreの文法と演奏意味論は[Score仕様](score_spec.md)を参照してください。
 
 `score inspect --summary`はイベント明細を省いた集計を返します。
 
