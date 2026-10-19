@@ -16,7 +16,7 @@ static PRESETS: LazyLock<Vec<Value>> = LazyLock::new(|| {
 pub(super) enum PresetCommand {
     /// List built-in presets and search their metadata.
     #[command(
-        long_about = "Results use stable category and ID order. Query values match case-insensitively as partial text, and no matches produce an empty successful result. Table output omits full descriptions, while machine-readable output includes complete metadata. The Score reference uses `CATEGORY/NNN-name` and the management ID uses `CATEGORY-NNN`."
+        long_about = "Results use stable category and ID order. Query values match case-insensitively as partial text, and no matches produce an empty successful result. The Score reference uses `CATEGORY/NNN-name` and the management ID uses `CATEGORY-NNN`."
     )]
     List(ListArgs),
 }
