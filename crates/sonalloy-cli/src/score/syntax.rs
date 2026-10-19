@@ -321,6 +321,8 @@ pub(super) fn voicing(chord: &Chord, tonic: i32, floor: i32) -> Vec<i32> {
     notes
 }
 
+const MAX_AUTOMATIC_UPPER_VOICES: usize = 6;
+
 pub(super) fn connected_voicing(
     chord: &Chord,
     tonic: i32,
@@ -345,6 +347,14 @@ pub(super) fn connected_voicing(
         .collect();
     classes.sort_unstable();
     classes.dedup();
+    if classes.len() > MAX_AUTOMATIC_UPPER_VOICES {
+        return Err(Error::new(
+            "",
+            format!(
+                "automatic voicing supports at most {MAX_AUTOMATIC_UPPER_VOICES} upper tones; specify an explicit voicing"
+            ),
+        ));
+    }
     let mut positions_by_class = Vec::with_capacity(classes.len());
     for pc in classes {
         let positions: Vec<_> = (bass + 1..=ceiling)

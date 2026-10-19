@@ -130,6 +130,37 @@ fn placements_accept_chord_tone_pitch_tokens() {
 }
 
 #[test]
+fn automatic_voicing_limits_upper_tones_and_explicit_voicing_keeps_large_chords() {
+    let mut doc = document();
+    doc["instruments"] = json!({
+        "keys": {
+            "external": true,
+            "voicing_floor_midi": 0,
+            "voicing_ceiling_midi": 127
+        }
+    });
+    doc["sections"]["a"] = json!({
+        "chords": ["1:(1,2,b3,3,4,b5,5,b6,6,b7,7)"],
+        "comp": {"keys": "hold"}
+    });
+
+    let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(
+        error.diagnostics[0].message,
+        "automatic voicing supports at most 6 upper tones; specify an explicit voicing"
+    );
+    assert_eq!(
+        error.diagnostics[0].path.as_deref(),
+        Some("sections.a.comp.keys")
+    );
+
+    doc["sections"]["a"]["chords"] = json!(["1:(1,2,3,4,5,6,7,9,11,13)"]);
+    doc["instruments"]["keys"]["voicing"] =
+        json!(["1", "2", "3", "4", "5", "6", "7", "9", "11", "13"]);
+    assert_eq!(notes(&compile(&doc.to_string()).unwrap(), "keys").len(), 10);
+}
+
+#[test]
 fn bass_chord_tone_root_must_fit_the_instrument_range() {
     let mut doc = document();
     doc["sections"]["a"] = json!({
