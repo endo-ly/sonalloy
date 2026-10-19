@@ -76,10 +76,10 @@ pub(super) struct ScoreArgs {
 pub(super) struct InspectArgs {
     #[command(flatten)]
     score: ScoreArgs,
-    /// Emit normalized browser preview metadata.
+    /// Emit normalized browser preview data.
     #[arg(long, conflicts_with = "json")]
     preview_json: bool,
-    /// Emit the structure summary instead of per-event detail.
+    /// Emit aggregate counts and duration; combine with `--json` for structured summary data.
     #[arg(long, conflicts_with = "preview_json")]
     summary: bool,
 }
