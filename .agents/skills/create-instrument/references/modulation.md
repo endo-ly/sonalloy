@@ -1,6 +1,6 @@
 # Modulation仕様
 
-本書はModulationのSourceの種類・Polarity・Routeの計算規則をまとめます。
+本書はModulation Source、Target Parameter ID、Unit、Routeの計算規則をまとめます。
 
 ## 構造とScope
 
@@ -41,6 +41,24 @@ Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar
 
 `rate`の範囲は`per_second`が0.01〜40、`per_beat`が1/64〜16（Quarter-note基準）です。`per_beat`はTempo変更後も拍基準の速度を保ちます。
 
+## Parameter ID
+
+Modulation Routeの`source`と`target`、Parameter Change、Inspect、Traceで使うIDは、Definitionの識別子と配置から決まります。
+
+| 対象 | ID形式 | 用途 |
+|---|---|---|
+| Layer内蔵値 | `layer.<layer_id>.gain`、`layer.<layer_id>.pan`、`layer.<layer_id>.tuning` | LayerのGain、Pan、Tuningを制御 |
+| Generator | `layer.<layer_id>.generator.<parameter>` | GeneratorのDynamic Parameterを制御 |
+| Operator Modulation | `layer.<layer_id>.generator.operator.<1-4>.<parameter>` | Operator固有Parameterを制御 |
+| Layer Processor | `layer.<layer_id>.processor.<processor_id>.<parameter>` | LayerのProcessorを制御 |
+| Voice Processor | `voice.processor.<processor_id>.<parameter>` | Voice Processorを制御 |
+| Global Processor | `global.processor.<processor_id>.<parameter>` | Global Processorを制御 |
+| Macro | `macro.<macro_id>` | 外部から操作し、Modulation Sourceとして使う |
+| 2-Way Vector | `vector.<vector_id>.position` | VectorのPositionを制御 |
+| 4-Way Vector | `vector.<vector_id>.x`、`vector.<vector_id>.y` | Vectorの水平・垂直Axisを制御 |
+
+Definition IDの文字規則は[Definition仕様](definition.md)に従います。GeneratorやProcessorの配置を変更するとIDも変わります。実際のCatalogは`instrument inspect --json`で確認してください。MacroはRouteのSourceにはできますが、RouteのTargetには指定できません。Vector AxisはTargetとして使えます。
+
 ## Routeの計算規則
 
 各Routeは`source`、`target`、`depth`、`curve`を持ち、任意で`depth_control`を指定できます。
@@ -71,14 +89,6 @@ Layer Tuning、Granular Pitch、Operator Detune、Unison Detune、Formant Shift�
 
 RouteのTargetに指定できるDynamic Parameterと、`depth.unit`に書くUnitの対応です。同じ名前のParameterでもGeneratorとProcessorでUnitが異なることがあるため、Target IDごとに確認します。表にないField（Static Field）はModulation対象外です。
 
-ProcessorのParameter IDは配置でPrefixが変わります。
-
-| 配置 | Prefix |
-|---|---|
-| Layer（`processors`） | `layer.<layer_id>.processor.<processor_id>.<parameter>` |
-| Voice（`voice_processors`） | `voice.processor.<processor_id>.<parameter>` |
-| Global（`global_processors`） | `global.processor.<processor_id>.<parameter>` |
-
 Layerの組み込みTarget:
 
 | Target | Unit |
@@ -86,6 +96,7 @@ Layerの組み込みTarget:
 | `layer.<id>.gain` | `decibels` |
 | `layer.<id>.pan` | `pan` |
 | `layer.<id>.tuning` | `cents` |
+| `vector.<id>.position`、`vector.<id>.x`、`vector.<id>.y` | `normalized` |
 
 GeneratorのParameter（Target IDは`layer.<id>.generator.<parameter>`。Operator Modulationだけ`layer.<id>.generator.operator.<1-4>.<parameter>`形式）:
 

@@ -11,38 +11,64 @@ use std::process::ExitCode;
 #[derive(Debug, Subcommand)]
 pub(super) enum ScoreCommand {
     /// Create a valid one-bar Score YAML file.
+    #[command(
+        long_about = "Create a one-bar Score YAML example that references the built-in `LEAD/001-analog-saw-lead` preset. The destination must not already exist. When you later validate, render, or audition the generated Score, built-in preset references are resolved through the command's `--preset-root`, `SONALLOY_PRESET_ROOT`, or a `presets/` directory found from the Score's parent directories."
+    )]
     Init { path: PathBuf },
     /// Validate score syntax, musical semantics, references, and instruments.
+    #[command(
+        long_about = "Parse the Score YAML, expand its form and patterns, resolve instrument definitions, and compile referenced instruments. Validation covers Score structure, note and control events, instrument references and capabilities, and external audio routing. Use `--bind` for each `external: true` instrument. `--json` returns the validation status and diagnostics."
+    )]
     Validate(ScoreArgs),
-    /// Inspect the resolved timeline and instrument events.
+    /// Inspect the Score overview or expanded event timeline.
+    #[command(
+        long_about = "Expand the Score and inspect its resolved timeline. The default text output shows the title, duration, section form, and per-instrument note counts; it does not include individual events. Detailed JSON includes the expanded event timeline. Summary output aggregates the whole Score, form occurrences, and instruments and can be returned as text or JSON. Browser preview data requires one instrument, one constant tempo and time signature, and only 1..=32 note events. The Score must be at most 10 seconds, use 30..=300 BPM, and have a meter numerator no greater than 32. Preview output cannot be combined with detailed JSON or summary output."
+    )]
     Inspect(InspectArgs),
     /// Export a complete Type 1 Standard MIDI File.
+    #[command(
+        long_about = "Export the expanded Score as a Type 1 Standard MIDI File with a conductor track and one track per instrument. Instrument tracks use MIDI channels and ports as needed. MIDI does not carry Sonalloy audio gain or Parameter Change and Parameter Ramp events; unsupported or conflicting control data is reported as diagnostics. Use `--json` to capture those diagnostics."
+    )]
     ExportMidi {
         #[command(flatten)]
         score: ScoreArgs,
+        /// Destination MIDI file; an existing file is not replaced.
         #[arg(long)]
         output: PathBuf,
     },
     /// Import one MIDI note channel into Score YAML without quantization.
+    #[command(
+        long_about = "Import a Standard MIDI File into Score YAML without quantizing note timing. Notes, tempo and time-signature changes, sustain pedal, pitch bend, mod wheel, and channel aftertouch are preserved. A file with one note channel selects it automatically; files with multiple note channels require `--channel`. Unsupported MIDI events are ignored and reported as warnings on standard error in text mode or in the JSON diagnostics."
+    )]
     ImportMidi {
+        /// Standard MIDI File to import.
+        #[arg(value_name = "MIDI_FILE")]
         midi: PathBuf,
+        /// Destination Score YAML file; an existing file is not replaced.
         #[arg(long)]
         output: PathBuf,
+        /// Instrument Definition referenced by the generated Score.
         #[arg(long)]
         instrument: PathBuf,
+        /// 1-based MIDI note channel to import (1..=16).
         #[arg(long,value_parser=clap::value_parser!(u8).range(1..=16))]
         channel: Option<u8>,
+        /// Tonal center for the imported Score.
         #[arg(long, default_value = "C")]
         tonic: String,
+        /// Emit machine-readable JSON results and diagnostics.
         #[arg(long)]
         json: bool,
     },
 }
 #[derive(Debug, Args)]
 pub(super) struct ScoreArgs {
+    /// Score YAML path.
+    #[arg(value_name = "SCORE")]
     pub(super) score: PathBuf,
     #[command(flatten)]
     pub(super) bindings: Bindings,
+    /// Emit machine-readable JSON results and diagnostics.
     #[arg(long)]
     pub(super) json: bool,
 }
@@ -50,10 +76,10 @@ pub(super) struct ScoreArgs {
 pub(super) struct InspectArgs {
     #[command(flatten)]
     score: ScoreArgs,
-    /// Emit normalized browser preview metadata.
+    /// Emit normalized browser preview data.
     #[arg(long, conflicts_with = "json")]
     preview_json: bool,
-    /// Emit the structure summary instead of per-event detail.
+    /// Emit aggregate counts and duration; combine with `--json` for structured summary data.
     #[arg(long, conflicts_with = "preview_json")]
     summary: bool,
 }
@@ -158,7 +184,7 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
             instrument,
             channel,
             tonic,
-            json: _,
+            json,
         } => {
             ensure_new(&output)?;
             let parsed = crate::midi::parse_midi(&midi).map_err(|diagnostics| CliFailure {
@@ -176,6 +202,9 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 std::fs::canonicalize(instrument).map_err(|e| failure(&output, e.to_string()))?;
             let doc = import_document(&events, &instrument, &tonic)?;
             write_score(&output, &doc)?;
+            if !json {
+                print_warnings(&diagnostics);
+            }
             Ok(
                 json!({"status":"ok","output":output,"diagnostics":crate::output::diagnostic_values(&diagnostics)}),
             )

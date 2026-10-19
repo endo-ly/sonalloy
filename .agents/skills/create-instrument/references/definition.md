@@ -71,7 +71,7 @@
 | `tags` | 検索用Tag。0〜12件。各Tagは前後に空白を持たない1〜32文字で、制御文字を含めず、ASCIIの大文字・小文字を区別した重複を持ちません |
 | `recommended_range` | 実用的な音域。`min_midi` / `max_midi`を0〜127で指定し、最小値を最大値以下にします |
 
-短いブラウザ試聴の演奏は、プリセットと同じディレクトリの `preview.score.yaml` に記述します。音源メタデータは分類と音域を持ち、音符や演奏時間は[Score YAML](score_spec.md)から取得します。
+短いブラウザ試聴の演奏は、プリセットと同じディレクトリの `preview.score.yaml` に記述します。音源メタデータは分類と音域を持ち、音符や演奏時間は[Score YAML](score_spec.md)から取得します。CLIはメタデータを使ってBuilt-in Presetを一覧・検索します。
 
 ## Performance
 
@@ -139,27 +139,9 @@ Note OnのVelocityは、Layerの発音条件、Generator固有の制御、Modula
 
 1. `trigger.velocity_min`〜`velocity_max`はLayerの発音範囲です。
 2. GeneratorごとのVelocity制御は各仕様に従います。Sample Generatorは各ZoneのVelocity範囲で再生Zoneを選びます。
-3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。
+3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。RouteのID、Unit、計算規則は[Modulation仕様](modulation.md)に従います。全体構造の例では、`layer.body.gain`へのRouteがVelocityに応じて最大8 dBを加算します。
 
-Layerの`gain_db`はLayerの基準音量です。Velocityによる音量差を作る最小例は次のとおりです。
-
-```json
-"modulation": {
-  "sources": [],
-  "routes": [
-    {
-      "source": "velocity",
-      "target": "layer.body.gain",
-      "depth": { "value": 8.0, "unit": "decibels" },
-      "curve": "linear"
-    }
-  ]
-}
-```
-
-このRouteはVelocityに応じてLayer Gainを最大8 dB加算します。
-
-Layerの全体例は「全体構造」の例にある`layers[0]`です。
+Layerの`gain_db`はLayerの基準音量です。Layer構造の例は「全体構造」の`layers[0]`を参照してください。
 
 Open HatとClosed Hatのような排他発音では、別々のNote範囲を持つLayerに同じ`choke_group: "hats"`を指定します。実際に発音するLayerだけがChokeを起こし、同Groupの古いLayerはADSRのRelease設定によらず5msで停止します。Voice内の他GroupのLayerとGlobal Processorの残響は継続します。`performance.choke_groups`も宣言した場合は、Keyに応じたNote全体の停止も適用されます。
 
@@ -212,7 +194,7 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 
 ## External Audio
 
-外部Audioは、音源定義の`external_audio`で入力Channel数を固定し、定義の外部Audio Consumerへ共有する入力Busです。Mono入力は左右へ同じ値を渡し、Stereo入力は左右を独立して扱います。入力Busを使う定義は、Compile時のProcess仕様にも同じChannel数を要求します。
+外部Audioは、音源定義の`external_audio`で入力Channel数を固定し、外部Audio Consumerへ共有する入力Busです。Mono入力は左右へ同じ値を渡し、Stereo入力は左右を独立して扱います。入力Busを使う定義は、Compile時と実行時に同じChannel数を要求します。
 
 ```json
 {
@@ -231,18 +213,18 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 }
 ```
 
-外部AudioのConsumerはGlobal Processorへ置きます。Envelope FollowerはInstrument単位のModulation Sourceで、FilterなどのTargetへRouteできます。Gate / Compressorは`detector: "external_audio"`をGlobal Chainで指定すると外部Sidechainとして動作し、それ以外のDetectorは`"self_signal"`です。Vocoderは固定24帯域、Envelope Transferは外部振幅によるGain制御、Spectral Morphは外部SpectrumとのMagnitude Morphを行います。
+外部Audio Busは、Instrument単位のEnvelope FollowerまたはGlobal Processorから利用できます。Gate / Compressorの外部DetectorとCross Synthesis ProcessorはGlobal Chainに限ります。Processorの共通設定は[Processor仕様](processors.md)、Envelope FollowerのSourceは[Modulation仕様](modulation.md)を参照してください。
 
-| Consumer | 入力 | Dynamic Parameter | 固定Latency |
-|---|---|---|---:|
-| Envelope Follower | 外部Audioのリンクした振幅 | `attack_ms`、`release_ms`、`input_gain_db`は定義値 | 0 frames |
-| External Sidechain | Global Gate / CompressorのDetector | `threshold_db`など既存Dynamics Parameter | 0 frames |
-| Vocoder | 外部Audioの左右別24帯域Envelope | `modulator_gain_db`、`output_gain_db`、`mix` | 0 frames |
-| Envelope Transfer | 外部Audioのリンクした振幅 | `input_gain_db`、`floor_db`、`mix` | 0 frames |
-| Spectral Morph | 外部Audioの左右別Spectrum | `morph`、`output_gain_db` | 1024 frames |
+| Consumer | 入力の用途 |
+|---|---|
+| Envelope Follower | 左右をリンクした入力振幅をModulation Sourceとして使う |
+| External Sidechain | 入力をGate / Compressorの検出信号として使う |
+| Vocoder | 左右別の帯域EnvelopeをCarrierへ適用する |
+| Envelope Transfer | 左右をリンクした入力振幅で信号のGainを制御する |
+| Spectral Morph | 左右別のSpectrumをCarrierのMagnitude Morphに使う |
 
-- 入力を要求するConsumerがある場合は`external_audio`を省略できません
-- 入力Busを宣言してもConsumerがない定義、複数のVocoderまたはSpectral Morph、Voice / Layerへ置いたCross Synthesis ProcessorはValidation Errorになります
+- 入力を要求するConsumerがある場合は`external_audio`が必要です。Consumerを持たない入力Busは無効です
+- VocoderとSpectral Morphはそれぞれ1つまでです。Cross Synthesis ProcessorはVoice / Layer Chainへ置けません
 
 ## コンパイル時の変換
 
@@ -260,9 +242,16 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 
 **Assetの準備**
 
-Sample、Wavetable、Spectral、Granular、Wave Sequenceは、コンパイル時にAssetを読み込み、SHA-256を照合してWAVをDecodeします。Sample Rateが異なる場合は変換し、同一Assetを参照するZoneやGenerator間でPrepared Audioを共有します。
+Sample、Wavetable、Spectral、Granular、Wave SequenceとConvolutionは、Definitionから参照したWAVをCompile時に読み込みます。Assetとして使うWAVはPCM 16-bit / 24-bitまたはFloat 32-bitで、MonoまたはStereoにします。相対PathはDefinitionファイルのDirectoryを基準とし、絶対Pathも使えます。`sha256`は任意で、指定した場合は元ファイルのSHA-256を照合します。同じAssetを複数のZoneやGeneratorが参照する場合、準備済みの音声データを共有します。
 
-有効なLayerが参照するAssetの欠落・Hash不一致・Decodeや事前解析の失敗はCompile Errorです。`enabled: false`のLayerはAsset準備と発音の対象外です。SHA-256は任意で、指定した場合に照合します。絶対Path、通常のResample、WavetableのMono化は正常な入力処理として扱います。
+有効なLayerまたはProcessorが参照するAssetの欠落・Hash不一致・Decodeや事前解析の失敗はCompile Errorです。`enabled: false`のLayerはAsset準備と発音の対象外です。Sample RateとChannelの変換はGeneratorごとに異なります。
+
+| Asset Consumer | Sample Rate | Channel |
+|---|---|---|
+| Sample / Granular / Wave Sequence | 処理Sample RateへResampleする | Mono / Stereoを保つ。GranularはMonoでもStereo出力 |
+| Wavetable | Compile時にResampleしない | MonoへDownmixする |
+| Spectral | 処理Sample Rateへ変換してSTFT解析し、Rate依存のFrameを作る | A/B AssetのChannel数を一致させる |
+| Convolution Processor | 処理Sample Rateへ準備する | Mono / Stereo IRを使う |
 
 **ErrorとWarning**
 

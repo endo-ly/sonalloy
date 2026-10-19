@@ -5,87 +5,67 @@ description: Use when creating, editing, or debugging Sonalloy instruments, or c
 
 # Create Instrument
 
-Sonalloyで音源（Instrument）を制作・検証・試聴し、Scoreを使った楽曲・試奏を作成・編集・確認する手順書です。
+Sonalloyでは、JSONで音源を定義し、Score YAMLで楽曲や試奏を記述します。CLIで検証・展開・レンダリングし、結果を聴いて調整します。
 
-## 参照ファイル
+## 概要と参照方法
 
-より詳細な仕様はreferences配下にまとめています。必要に応じて参照してください。
+操作方法と仕様の参照先を作業別に示します。
 
-| 文書 | 内容 |
+| 作業 | 参照先 |
 |---|---|
-| `references/definition.md` | Definition全体の構造・Performance・Layer・Trigger・Macro / Vector・External Audio・コンパイル時の変換 |
-| `references/generators.md` | 全GeneratorのField・Range・Dynamic Parameter・制約 |
-| `references/processors.md` | 全ProcessorのField・Range・Dynamic Parameter・固定Latency |
-| `references/modulation.md` | Modulation Source・Routeの計算規則・Parameter IDのPrefix・MSEG |
-| `references/score_spec.md` | 楽曲・試奏・プレビューのScore YAML文法と演奏仕様 |
-| `references/cli.md` | 全コマンドのOption・出力Report・診断Code・Exit Code |
+| プリセット探索 | `sonalloy preset list` |
+| CLI操作 | 該当コマンドの `--help` |
+| Definition構造 | [Definition仕様](references/definition.md) |
+| Generatorの設定 | [Generator仕様](references/generators.md) |
+| Processorの設定 | [Processor仕様](references/processors.md) |
+| Modulation | [Modulation仕様](references/modulation.md) |
+| Score YAML | [Score仕様](references/score_spec.md) |
+| 詳細Report・診断 | [CLI詳細仕様](references/cli.md) |
 
-## 全体フロー
+音源の種類や音響上の課題を決め、Definitionを作成・編集します。楽曲で確認する場合は適切な音源を選び、Scoreを検証してからレンダリングします。Inspect、Analysis、Traceで確認できる情報はCLIから取得し、その結果をもとに修正します。
 
-```text
-init → edit → validate → inspect → Score trial / render / analyze / trace → optional realtime audition → refine
-```
+## 音源を制作する
 
-1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
-2. **edit**：Generator、ADSR、Processor、Modulationを編集
-3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
-4. **inspect**：`instrument inspect --json`でCompile後の実行値（Parameter ID、Route Effect、Clamp範囲）を確認
-5. **score trial / render**：用途に合うScore YAMLで演奏を定義し、`score validate`から`render score`へ進む。単音や診断には`render note` / `render events` / `render midi`を使い、必要な事実を`--analyze`と`--trace`で取得する
-6. **楽曲の確認**：複数Instrumentを同じScoreからレンダリングし、必要に応じてStem・Master・MIDIを出力する
-7. **realtime trial**：`device list`でDeviceを確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition score`で同じDefinitionを演奏する
-8. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
+### 音の役割を決めて構成する
 
-## Definitionを編集する
-
-### ひな形を生成する（新規時）
+最初に、持続音、打撃音、ノイズ、共鳴音など音の役割を定めます。ひな形を作る場合は次のコマンドを使います。
 
 ```bash
-sonalloy instrument init <path>
+sonalloy instrument init <definition.json>
 ```
 
-Saw Oscillator・同時発音数16の最小Definitionが生成されます。
-
-### 構造の基本
-
-音源は1つ以上のLayerで構成されます。Layerは同じVoice内でMixされ、Layerごとに独立したADSR・Gain・Pan・Tuningを持ちます。
+DefinitionはLayerの集合です。各LayerはGeneratorを1つ持ち、Gain、Pan、Tuning、ADSR、Processorを設定できます。同じVoiceで複数Layerを重ねると、例えばSampleでAttackを加え、OscillatorやAdditiveで持続する芯を作れます。
 
 ```text
-Note On
-  │
-  ▼
-Layer 1 → Layer Processor → ADSR → Layer Gain / Pan ─┐
-                                                      ├→ Voice Processor → Global Processor → Stereo 出力
-Layer 2 → Layer Processor → ADSR → Layer Gain / Pan ─┘
+Note
+ ├─ Layer: Sample Attack ─ Layer Processor ─┐
+ ├─ Layer: Oscillator Body ─ Layer Processor ├─ Voice Processor
+ └─ Layer: Noise Air ────── Layer Processor ┘        │
+                                             Global Processor → Output
 ```
 
-### ADSRで音の輪郭を作る
+| 音の役割 | 選択肢の例 |
+|---|---|
+| 波形と倍音を直接作る | Oscillator、Additive、Operator Modulation |
+| 母音や共鳴を作る | Formant、Modal、Physical String |
+| 録音素材を使う | Sample、Granular、Wave Sequence |
+| 音色を時間変化させる | Wavetable、Spectral |
+| Noiseや短い成分を加える | Noise、短いSample |
 
-| Parameter | 役割 | Range / 目安 |
-|---|---|---|
-| `attack_seconds` | Note Onから最大音量へ達する時間 | 0〜30秒。0で瞬発、数秒でうねり |
-| `decay_seconds` | 最大音量からSustain Levelへ下がる時間 | 0〜30秒。0.05〜0.3が一般的 |
-| `sustain_level` | Note On中の音量 | 0〜1。0で短い音、1で伸びる音 |
-| `release_seconds` | Note Offから無音へ至る時間 | 0〜30秒。0でバツンと切れる |
+複数の音源方式を使う場合は、一度に増やしすぎず、各Layerの役割を確かめてから重ねます。Layer単独の音を聴くには、元Definitionと同じDirectoryに検証用コピーを作り、対象以外のLayerを`enabled: false`にしてから`render note`を実行します。`render note`はDefinition全体の有効なLayerを鳴らすため、Layer選択Optionはありません。
 
-### ProcessorとModulation
+| 構成 | Layerの組合せ例 |
+|---|---|
+| Harmonic / Formant | Formant（共鳴）+ Additive（芯）+ Sample（Attack）+ Noise（Air） |
+| Spectral | Spectral + Additive + Sample + Noise |
+| Digital | Wavetable（持続音）+ Operator Modulation（倍音）+ Sample（短いAttack） |
+| Physical / Modal | Physical String（励振）+ Modal（Body・共鳴） |
 
-- **Processor**：Layer / Voice / Globalの3段階で直列適用します。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ち、Wet / Dry比は`mix` 1つで表現します
-- **Dynamics**：Gate / Compressorは`detector: "self_signal"`またはGlobal専用の`"external_audio"`を指定します。外部Detectorを使うときは`external_audio`を宣言します
-- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、MacroなどのSourceをDynamic Parameterへ接続します
+### Definitionを組み立てる
 
-Processorはどの配置でもObjectのトップレベルに`type`（種類）と`id`（Parameter IDの一部になる識別子）を持ち、残りのFieldは種類ごとに異なります。`processors`はLayerのField、`voice_processors` / `global_processors`はトップレベルのFieldです。
+Layerごとに発音条件とADSRを調整します。DecayとSustainは役割に応じて選び、Releaseは音の終わりが自然になる長さにします。Generator、Processor、Modulationは、前節の検証用Definitionで効果を確かめ、最後に有効なLayerを戻して全体を聴きます。
 
-```json
-"processors": [
-  { "type": "filter", "id": "attack_tone", "mode": "low_pass", "cutoff_hz": 9000.0, "resonance": 0.1 }
-],
-"voice_processors": [],
-"global_processors": [
-  { "type": "reverb", "id": "space", "pre_delay_seconds": 0.012, "decay": 0.6, "damping": 0.35, "width": 1.0, "mix": 0.2 }
-]
-```
-
-Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation RouteとParameter ChangeのTargetはこの形式で書きます。上例のLayer Filterは`layer.<layer_id>.processor.attack_tone.cutoff`、Reverbは`global.processor.space.mix`、Generatorは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）です。Prefixの一覧は[Modulation仕様](references/modulation.md)、ProcessorのFieldは[Processor仕様](references/processors.md)を参照し、Routeを書く前に`instrument inspect --json`で実際のParameter IDと配置を確認します。
+実際のParameter IDと範囲は `instrument inspect --json` で確認して設定します。
 
 ```json
 "modulation": {
@@ -99,92 +79,78 @@ Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation Ro
 }
 ```
 
-VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。Sourceの種類・Polarity・`depth`のUnit対応・使い分けは[Modulation仕様](references/modulation.md)を参照してください。
+VelocityとKey Trackingは組み込みSourceのため、Source定義なしでRouteから参照できます。
 
-## Asset（WAV）を扱う
+### WAV Assetを用意する
 
-Sample、Wavetable、Spectral、Granular、Wave Sequenceは外部WAVをAssetとして参照します。共通する扱いをまとめます。各Generatorへ渡す`asset.path`は、DefinitionのあるDirectoryを基準とした相対Path、または絶対Pathを指定できます。共有する音源では相対Pathが適しています。
+Sample、Wavetable、Spectral、Granular、Wave Sequence、ConvolutionではWAVを参照できます。PathはDefinitionのあるDirectoryからの相対Path、または絶対Pathです。共有するDefinitionでは相対Pathを使うと移動しやすくなります。
 
-### 配置と形式
-
-- 形式はPCM 16/24 bitまたはFloat 32。Mono / Stereoを使用できます
-- `sha256`は任意の起動時検証用です。必要なAssetの欠落・Hash不一致・Decode失敗はCompile Errorとなり、Path・形式・Hashを修正してからRenderします
-
-### SHA-256の計算
+`sha256`を指定する場合は、WAVのSHA-256を記録します。
 
 ```bash
 # Linux
 sha256sum <path>
 
 # Windows
-Get-FileHash -Algorithm SHA256 <path>   # 小文字のhexでJSONへ記録する
+Get-FileHash -Algorithm SHA256 <path>
 ```
 
-### Sample RateとChannelの扱い（Generator別）
+Assetの欠落、Hash不一致、Decodeや準備の失敗はValidationまたはCompile時の診断になります。診断されたPath、Hash、WAV形式を修正して再検証します。
 
-| Generator | Sample Rate | Channel |
+## 楽曲を制作する
+
+### 用途に合う音源を選ぶ
+
+`sonalloy preset list`で収録音源を確認し、管理用IDとScoreから参照するPreset値の両方を見ます。音色名、説明、カテゴリ、タグなどで一覧を絞り込み、カテゴリを演奏上の役割として固定せず、音域や発音特性に合う音色を選びます。
+
+一覧の説明はビルド時に埋め込まれたメタデータです。Scoreを演奏・レンダリングする環境には、Preset Definitionと必要なAssetも必要です。
+
+### Scoreで楽曲を記述する
+
+`score init <path>`でScore YAMLのひな形を作り、曲の構成、調性、テンポ、拍子、楽器、旋律や伴奏を編集します。
+
+制作時は、旋律だけでなく、低音、和声、リズム、音色のアタックと余韻を合わせて確認します。セクション間で素材を再利用し、曲全体で音域や密度に変化をつけます。各楽器の音量や定位を調整してから、複数楽器をまとめて聴きます。
+
+Presetの試聴Scoreは `preview.score.yaml` を使い、同じ演奏内容を詳細に試聴する場合も同じファイルを使います。別の演奏内容で奏法を試す場合は `showcase.score.yaml` を用意します。共通Scoreは `presets/common-scores/` にあり、外部Definitionを割り当てる楽器には `--bind` を指定します。
+
+MIDIをScoreへ取り込む場合は `score import-midi`、ScoreをMIDIへ書き出す場合は `score export-midi` を使います。ScoreとMIDIの変換で保持・省略される情報は[Score仕様](references/score_spec.md)に記載しています。
+
+## 検証と試聴
+
+作業対象と確認したい内容に応じてコマンドを選びます。
+
+| 対象 | コマンド | 確認する内容 |
 |---|---|---|
-| Sample / Granular / Wave Sequence | 処理Sample RateへResampleされる | Mono / Stereoを保持（GranularはMonoでもStereo出力） |
-| Wavetable | Pitchへ使われず、コンパイル時にResampleされない | MonoへDownmixされる |
-| Spectral | コンパイル時にSample Rate変換とSTFT解析を行い、処理Sample Rate依存のFrameになる | A/BでChannel数を一致させる |
+| Definition | `instrument validate` | JSON、制約、Assetの準備 |
+| Compile後の音源 | `instrument inspect` | 実行値、Parameter ID、Route、Processor、Warning |
+| 音源候補の比較 | `instrument report` | 条件をそろえた音響解析、必要に応じて音量 |
+| 単音 | `render note` | 音色、音域、Velocity、ADSR |
+| 発音中の操作 | `render events` | Parameter Change、Ramp、Pedal、Bendなど |
+| MIDIフレーズ | `render midi` | MIDI演奏とControlの反映 |
+| Score | `score validate`、`score inspect` | 構文・参照・演奏内容、展開後Timeline |
+| 楽曲 | `render score` | Part、Section、Mix、Stem、Master |
+| Realtime試聴 | `audition`、`play` | Audio DeviceやMIDI Inputを使う演奏 |
 
-## Generator
-
-GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。各GeneratorのField・Range・Dynamic Parameter・制約は[Generator仕様](references/generators.md)を参照してください。Modulation Target IDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）。
-
-## Hybrid構成
-
-複数Generatorを同じVoiceでMixすると、役割分担で調整しやすくなります。代表的な構成：
-
-| 構成 | Layer構成 |
-|---|---|
-| Harmonic / Formant Hybrid | Formant（共鳴）+ Additive（芯）+ Sample（Attack）+ Noise（Air）+ Layer / Voice / Global Processor |
-| Spectral Hybrid | Spectral + Additive + Sample + Noise + Processor / Modulation |
-| Digital Hybrid | Wavetable（持続）+ Operator Modulation（倍音芯）+ Sample（短アタック） |
-| Physical / Modal Hybrid | Physical String（撥弦・振動）+ Modal（Body・共鳴）+ Layer / Voice / Global Processor |
-
-Hybridを作る手順：
-
-1. 各LayerのGainとEnvelopeを単独で確認する
-2. Sample / Wavetable AssetのPathとSHA-256を保持したまま複製する
-3. `instrument inspect --json`でLayer / Voice / Global Processorの配置・順序・Parameter IDを確認し、Route TargetがDefinitionのLayer ID / Processor IDに一致することを確かめる
-4. LFO、Modulation Envelope、Velocity、Mod Wheel、AftertouchをFormant ParameterまたはProcessorへ接続し、`render events` / `render midi`でPhraseの振る舞いを確認する
-
-## 検証する
+Definitionは次の順で確認します。
 
 ```bash
-sonalloy instrument validate <definition>          # JSON Parse・Validation・コンパイルまで実行
-sonalloy instrument inspect <definition> --json    # 実行値を機械可読で表示（--json省略で人間可読）
+sonalloy instrument validate <definition>
+sonalloy instrument inspect <definition> --json
+sonalloy render note <definition> --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --analyze --output out/<name>/note.wav --json
 ```
 
-- `validate`のWarningも表示されるため必ず確認する。ErrorにはField Pathが付くため、そのまま該当箇所へ反映できる
-- Asset Errorの場合は、診断のField Pathを確認して参照WAVを修正する
-- `inspect`の表示項目は[CLIリファレンス](references/cli.md)を参照する
-- Inspect、Analysis、Traceが既に公開している事実を得るために、RuntimeのSource Codeを読んだり、同じ値を再計算する外部スクリプトを作ったりしないでください。製品Interfaceで不足する研究や一回限りの人間向け分析に限り、外部ツールを使えます
+発音中のParameterやControl Eventを確認するときは `render events`、Phrase全体の演奏を確認するときは `render midi` を使います。Modulationの実行中の値は `--trace` で観測します。
 
-## 試聴する
+Scoreでは、検証後に展開結果を確認してからRenderします。
 
 ```bash
-# 単音
-sonalloy render note <definition> \
-  --note 60 --velocity 100 --gate 0.5 --tail 0.5 --tempo 120 \
-  --sample-rate 48000 --block-size 257 --analyze \
-  --trace layer.main.tuning --trace-every-frames 480 \
-  --output out/<name>/note.wav --json
-
-# 発音中のParameter / Control Event
-sonalloy render events <definition> <events.json> \
-  --duration-frames 96000 --output out/<name>/events.wav
-
-# MIDI Phrase
-sonalloy render midi <definition> <midi-file> \
-  --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/<name>/phrase.wav
+sonalloy score validate <score.yaml>
+sonalloy score inspect <score.yaml> --summary --json
+sonalloy render score <score.yaml> --output out/song.wav --analyze --json
 ```
 
-## Scoreで用途を試奏する
-
-単音だけでは判断できない場合は、[Score YAML](references/score_spec.md)に演奏を記述します。プリセットの短い試聴は `preview.score.yaml` を使い、別の演奏内容で詳細な奏法を試す場合だけ `showcase.score.yaml` を用意します。同じ演奏の詳細試奏にも `preview.score.yaml` を使います。共通の試奏素材は `presets/common-scores/` にあり、未束縛の楽器を `--bind` で指定します。
+複数楽器のScoreから特定の楽器や区間を確認するときは、`render score`や`audition score`の選択Optionをヘルプで確認します。Audio Deviceで再生する前に `device list` でIDを確認します。プリセットの試聴は次のようにDefinitionを束縛します。
 
 ```bash
 sonalloy score validate presets/common-scores/lead.score.yaml --bind preview=<definition>
@@ -193,38 +159,16 @@ sonalloy render score presets/common-scores/lead.score.yaml \
 sonalloy audition score presets/common-scores/lead.score.yaml --bind preview=<definition> --loop
 ```
 
-自作の楽曲は `score init <path>` から編集し、`score inspect --json` で展開結果を確かめます。複数楽器のリアルタイム試聴には `--part <id>` を指定し、区間は `--section <name>` で選びます。楽曲全体の音は `render score` で確認します。
+Inspect、Analysis、Traceが公開する値を取得するためにRuntime Source Codeを読んだり、同じ値を再計算する外部Scriptを作ったりしません。製品Interfaceにない研究や一回限りの人向け分析が必要なときに、外部ツールを使います。
 
-音量バランスを調べるときは、`instrument report --loudness`でNote・Velocity・Gate・Tailをそろえて各音源の基準音量を比較し、`render score --analyze --json`でPart全体とSection内Partを確認します。数値は音源の役割や演奏密度と合わせて判断し、調整は`instruments.<id>.gain_db`と`sections.<name>.part_gains`へ反映して、最後に楽曲を試聴します。
+## 評価と仕上げ
 
-MIDIは `score import-midi <midi> --instrument <definition> --output <score.yaml>` で取り込み、`score export-midi <score.yaml> --output <song.mid>` で書き出します。17楽器以上はMIDI Portを分けて出力します。音源固有のParameterやゲインレーン間で異なる制御列は省略され、対象楽器と内容がwarningになります。`--json`では成功Reportの`diagnostics`を確認します。音符ごとの強弱・接続、コードの修飾・声部配置、スウィングは[Score仕様](references/score_spec.md)に従って記述します。
+音源を比べるときは、同じNote、Velocity、Gate、Tail、Sample Rateでレンダリングします。`instrument report --loudness`は複数Definitionの音響とIntegrated LUFS、True Peakを同じ条件で比較できます。楽曲では `render score --analyze --json` のPart・Section別の解析を使い、数値を音源の役割や演奏密度と合わせて判断します。必要な音量調整はScoreの楽器GainやSection Gainに反映し、再度Mixを確認します。
 
-## Deviceが利用できる場合のRealtime試聴
+Modulationが意図した範囲を動くかはInspectでParameter IDと許容範囲を確認し、Traceで実際の変化を確認します。最大Velocityでの過大な出力も確認します。
 
 ```bash
-sonalloy device list
-sonalloy device list --json
-sonalloy play <definition> --midi-device <id>
+sonalloy render note <definition> --note 60 --velocity 127 --analyze --output out/<name>/max-velocity.wav
 ```
 
-`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio Input / OutputとMIDI InputのIDを確認し、外部Audioを使うDefinitionでは必要なChannel数とSample Rateに対応するInputを`--audio-input-device`で選びます。複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。
-
-## 仕上げる
-
-- `metadata.name`と`metadata.description`を実際の音色に合わせる
-- `validate` / `inspect --json`のWarning、出力Mode、Parameter Unit、Route Effect、Parameter IDを最終確認する
-- `--trace`で宣言したModulationが意図した範囲を動いたか確認する
-- 最大Velocity（127）でもクリップしないことを確認する。`render note --velocity 127 --analyze`の`analysis.level.over_full_scale`が`false`であること
-- 生成したWAVを同じ音量条件で試聴する
-
-## 失敗時の対処
-
-Exit Codeの意味と対処は[CLIリファレンス](references/cli.md)を参照してください。
-
-### よくある症状と対処
-
-| 症状 | 対処 |
-|---|---|
-| Asset Errorが出た | 診断のField Pathに対応するPath・Hash・WAV形式を確認する |
-| 音が鳴らない | `enabled: true`、`trigger`の範囲に発音するNote / Velocityが含まれているか確認する |
-| Sampleが無視された | Asset PathとSHA-256の一致、WAV形式（PCM 16/24、Float 32）を確認する |
+Analysisの`level.over_full_scale`が`false`であることを確認し、最後に生成したWAVと完成Scoreを試聴します。Warningを含め診断を確認し、問題があれば該当DefinitionやScoreを修正して検証・試聴を繰り返します。

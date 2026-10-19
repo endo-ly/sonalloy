@@ -16,7 +16,7 @@
 8. [音源参照・演奏データ境界](#8-音源参照演奏データ境界)
 9. [詳細時間・端数小節](#9-詳細時間端数小節)
 10. [演奏イベント・マクロ・優先規則](#10-演奏イベントマクロ優先規則)
-11. [プリセット試聴・プレビュー・CLI境界](#11-プリセット試聴プレビューcli境界)
+11. [プリセット試聴・プレビュー・MIDI変換](#11-プリセット試聴プレビューmidi変換)
 12. [解析・診断](#12-解析診断)
 13. [フィールド契約・文法一覧](#13-フィールド契約文法一覧)
 
@@ -205,6 +205,8 @@ instruments:
 
 `form`の開始位置を順に足すことで曲全体の小節位置と経過時間が確定する。曲中のテンポ・拍子変更は`form`のセクション開始時点、または途中のテンポだけを扱う`time_changes`へ記述し、音符の四分音符基準の位置は維持する。
 
+この章はグリッド記法とパターンの基本を扱います。明示位置、有理数の長さ、連符、端数小節は[第9章](#9-詳細時間端数小節)にまとめています。
+
 ### 4.2 メロディ文字列
 
 ```yaml
@@ -387,9 +389,9 @@ instruments:
   preview: {external: true, gain_db: 0, role: audition}
 ```
 
-- `preset`：`<preset_root>/<CATEGORY>/<NNN-kebab-name>/definition.json`へ厳密に解決。`preset_root`はCLIの`--preset-root <PATH>`を優先し、未指定なら環境変数`SONALLOY_PRESET_ROOT`、さらに未指定ならScoreファイルの親ディレクトリを上へ辿って最初に見つかる`presets/`を使う。いずれでも見つからなければ、`--preset-root`の指定を要求するエラー。存在しないID、プリセットルート外の参照はエラーとする。プリセットの識別子は実際のディレクトリ名と対応し、別の音源へ置き換えて解決しない。
+- `preset`：`<preset_root>/<CATEGORY>/<NNN-kebab-name>/definition.json`へ厳密に解決する。探索順はCLIの`--preset-root`、環境変数`SONALLOY_PRESET_ROOT`、Scoreファイルの親ディレクトリから上へ辿って最初に見つかる`presets/`の順。いずれでも見つからない場合、存在しないIDやルート外参照はエラーとする。プリセット識別子は実際のディレクトリ名と対応し、別の音源へ置き換えない。`preset list`は埋め込みメタデータを表示する。演奏・レンダリングには解決先のDefinitionと必要なAssetが必要である。
 - `definition`：Score所在ディレクトリを基点に参照。解決先はInstrument Definition JSON。`definition.json`の`schema_version`等は既存Coreに従う。
-- `external: true`：試奏用Scoreなどの未束縛楽器。CLIの`--bind <instrument_id>=<definition_path>`を**必須**とし、未束縛での実行をエラーにする。固定`preset`・`definition`を持つ楽器への束縛を拒否する。
+- `external: true`：試奏用Scoreなどで外部からDefinitionを割り当てる楽器。実行時にDefinitionを束縛する。`--bind`の引数形式や重複・固定楽器への指定条件はCLIヘルプを参照する。
 - `gain_db`：楽器全体の固定ゲイン（省略時0、有限数）。`role`は表示・分類だけに利用。
 - `pan`：楽器単位の左右定位。`-1.0`が左、`0.0`が中央、`1.0`が右で、許容範囲は`-1.0..=1.0`の有限数、省略時は`0.0`。同じ楽器の複数ゲインレーンには同一のPanが適用される。中央と省略時は無加工であり、振った側と反対のチャンネルを段階的に減衰させるステレオ・バランス方式（`pan <= 0`は左`1`／右`1 + pan`、`pan > 0`は左`1 - pan`／右`1`）。Panはゲインレーン合算の直後に一度だけ適用され、最終ミックス・Stem・`audio_input`へ渡されるパート音声は同じ定位を持つ。
 - `voicing_floor_midi`：和音の最下声配置下限（0～127）。`trigger_note_midi`：Drum/FXなど、音程を指定しない打撃・単発音を鳴らすMIDIノート（0～127）。打撃・単発音を生成する場合は必須であり、音源ごとに明示する。`bass_floor_midi`/`bass_ceiling_midi`はベース参照音の標準配置範囲（省略時28～39）。
@@ -404,7 +406,7 @@ instruments:
 
 `meta.fade_out_seconds`を楽曲全体のフェードアウト（省略時0）に使用する。MP3出力時、`meta.master.max_true_peak_db`が設定されており、MP3エンコード後の測定`true_peak_db`がその上限を超える場合は、測定値・上限・超過量を含むwarningを返す（対象は`meta.master.max_true_peak_db`。上限以内ならwarningは出ない）。
 
-`sample_rate`、`block_size`、`tail_seconds`、WAV/MP3/Stem/Premasterの出力先は**コマンド実行条件**であり、楽譜には持たせない。
+Sample Rate、Block Size、Tail、WAV / MP3 / Stem / Premasterの出力先は**コマンド実行条件**であり、楽譜には持たせない。Optionと既定値は対象コマンドのCLIヘルプを参照する。
 
 ## 9. 詳細時間・端数小節
 
@@ -478,7 +480,7 @@ form:
 - MIDI Noteは0～127、Velocityは1～127。`recommended_range`から外れた発音はwarning。実際のGeneratorのKey/Velocity Triggerと照合して**発音可能Layerがない場合**はerror。シンセによっては音程無関係のTrigger Noteを必要とする。
 - `parameter_change`/`automation`のParameter IDは楽器のCatalogに存在し、Native値は範囲内の有限数とする。Mod Wheelなどのレンダラー標準演奏操作と、音源固有Parameterの対象は区別する。
 
-## 11. プリセット試聴・プレビュー・CLI境界
+## 11. プリセット試聴・プレビュー・MIDI変換
 
 ### 11.1 同じScore文法を4用途に使用
 
@@ -491,13 +493,11 @@ form:
 
 短いプレビューと詳細試奏が異なる音楽なら、異なるScoreでよい。演奏データはScoreに記録し、音源の名前、タグ、音域、音色は`definition.json`に定義する。
 
-ブラウザ向けプレビューは1楽器・1テンポ・1拍子のNote列とし、30〜300 BPM、1〜32音、音楽時間10秒以内に収める。
+ブラウザ向けプレビューは1楽器・1テンポ・1拍子のNote列とし、イベントはNoteだけにする。Noteは1〜32音、演奏時間は10秒以内、Tempoは30〜300 BPM、拍子の分子は32以下にする。
 
-### 11.2 CLIとMIDI取り込み
+### 11.2 MIDI取り込み
 
-コマンドのOptionとReportは[CLIリファレンス](cli.md)を参照する。Scoreに関わる公開入口は`score init/validate/inspect/import-midi/export-midi`、`render score`、`audition score`。
-
-`score import-midi`は主音を`--tonic`（既定C）とし、主音からの半音を`1 #1 2 b3 3 4 #4 5 b6 6 b7 7`の固定綴りで度数へ書き直す。`scale`は付与しない。取り込めない情報は診断として報告し、音程とタイミングを暗黙にクオンタイズしない。
+MIDIのNoteは指定した主音からの半音を`1 #1 2 b3 3 4 #4 5 b6 6 b7 7`の固定綴りへ変換する。Scoreに`scale`は付けない。Noteの音高・Velocity・長さと元のTick位置を保ち、Tempo変更、拍子変更、Sustain Pedal、Pitch Bend、Mod Wheel、Channel Aftertouchも取り込む。グリッドへ暗黙にクオンタイズしない。Polyphonic Aftertouch、未対応Controller、Program Change、SysExなどは診断とともに省略する。Channel選択や主音指定などのCLI動作は[CLI詳細仕様](cli.md)を参照する。
 
 ### 11.3 MIDI出力
 

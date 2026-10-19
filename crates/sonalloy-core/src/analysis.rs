@@ -227,10 +227,10 @@ pub fn analyze_rendered_audio(
     if audio.channels.iter().any(|channel| channel.len() != frames) {
         return Err(AudioAnalysisError::UnequalChannelLengths);
     }
-    if let Some(reference) = options.reference_frequency_hz
-        && (!reference.is_finite() || reference <= 0.0)
-    {
-        return Err(AudioAnalysisError::InvalidReferenceFrequency);
+    if let Some(reference) = options.reference_frequency_hz {
+        if !reference.is_finite() || reference <= 0.0 {
+            return Err(AudioAnalysisError::InvalidReferenceFrequency);
+        }
     }
 
     let mut finite = true;

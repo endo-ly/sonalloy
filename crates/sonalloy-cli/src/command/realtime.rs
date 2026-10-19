@@ -13,6 +13,9 @@ use crate::realtime::{PlayOptions, ScheduledAuditionOptions};
 #[derive(Debug, Subcommand)]
 pub(super) enum AuditionCommand {
     /// Audition one instrument from a Score YAML timeline.
+    #[command(
+        long_about = "Play one instrument from a Score through an audio output. A section occurrence is its one-based position in the entire form, as shown by `score inspect --summary`; it is not a count among sections with the same name. A selection that requires multiple independent performance lanes cannot be auditioned as one instrument. A Definition that requires live external audio can use the selected input or the OS default input. Score-level `instruments.<id>.audio_input` routing requires offline `render score`."
+    )]
     Score(AuditionScoreArgs),
     /// Play one MIDI Note Channel through an audio output without a MIDI input.
     #[command(
@@ -80,7 +83,7 @@ pub(super) struct AuditionScoreArgs {
     /// Select one named section occurrence.
     #[arg(long)]
     pub(crate) section: Option<String>,
-    /// One-based occurrence number used with `--section`.
+    /// One-based position of the matching entry in the entire form.
     #[arg(long, requires = "section", value_parser = super::parse_positive_usize)]
     pub(crate) occurrence: Option<usize>,
     /// Audio Output ID from `device list`; the OS default is used when omitted.

@@ -328,25 +328,24 @@ pub(crate) fn print_failure(json: bool, failure: &CliFailure) {
                 }
             }
             if let Some(detail) = &diagnostic.detail {
-                if let Ok(fields) = serde_json::from_str::<serde_json::Value>(detail)
-                    && fields["source_type"] == "score"
-                {
-                    for key in [
-                        "line",
-                        "column",
-                        "source_bar",
-                        "section",
-                        "occurrence",
-                        "bar",
-                        "step",
-                        "actual",
-                    ] {
-                        if let Some(value) = fields.get(key).filter(|value| !value.is_null()) {
-                            eprintln!("  {key}: {value}");
+                match serde_json::from_str::<serde_json::Value>(detail) {
+                    Ok(fields) if fields["source_type"] == "score" => {
+                        for key in [
+                            "line",
+                            "column",
+                            "source_bar",
+                            "section",
+                            "occurrence",
+                            "bar",
+                            "step",
+                            "actual",
+                        ] {
+                            if let Some(value) = fields.get(key).filter(|value| !value.is_null()) {
+                                eprintln!("  {key}: {value}");
+                            }
                         }
                     }
-                } else {
-                    eprintln!("  detail: {detail}");
+                    _ => eprintln!("  detail: {detail}"),
                 }
             }
         }

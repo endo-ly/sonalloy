@@ -7,6 +7,13 @@ use serde_json::json;
 use support::fixture_path;
 use tempfile::tempdir;
 
+fn meta_event(delta: u32, message: midly::MetaMessage<'static>) -> TrackEvent<'static> {
+    TrackEvent {
+        delta: delta.into(),
+        kind: TrackEventKind::Meta(message),
+    }
+}
+
 fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
     let path = directory.join("sustain.mid");
     let mut smf = Smf::new(Header::new(
@@ -14,14 +21,8 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
         Timing::Metrical(480.into()),
     ));
     smf.tracks.push(vec![
-        TrackEvent {
-            delta: 0.into(),
-            kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(500_000.into())),
-        },
-        TrackEvent {
-            delta: 0.into(),
-            kind: TrackEventKind::Meta(midly::MetaMessage::TimeSignature(4, 2, 24, 8)),
-        },
+        meta_event(0, midly::MetaMessage::Tempo(500_000.into())),
+        meta_event(0, midly::MetaMessage::TimeSignature(4, 2, 24, 8)),
         TrackEvent {
             delta: 0.into(),
             kind: TrackEventKind::Midi {
@@ -46,6 +47,16 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
             delta: 0.into(),
             kind: TrackEventKind::Midi {
                 channel: 0.into(),
+                message: MidiMessage::Controller {
+                    controller: 7.into(),
+                    value: 100.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
                 message: MidiMessage::PitchBend {
                     bend: midly::PitchBend::from_int(4096),
                 },
@@ -58,10 +69,7 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
                 message: MidiMessage::ChannelAftertouch { vel: 80.into() },
             },
         },
-        TrackEvent {
-            delta: 103.into(),
-            kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(666_667.into())),
-        },
+        meta_event(103, midly::MetaMessage::Tempo(666_667.into())),
         TrackEvent {
             delta: 0.into(),
             kind: TrackEventKind::Midi {
@@ -72,10 +80,7 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
                 },
             },
         },
-        TrackEvent {
-            delta: 120.into(),
-            kind: TrackEventKind::Meta(midly::MetaMessage::TimeSignature(6, 3, 24, 8)),
-        },
+        meta_event(120, midly::MetaMessage::TimeSignature(6, 3, 24, 8)),
         TrackEvent {
             delta: 120.into(),
             kind: TrackEventKind::Midi {
@@ -96,10 +101,7 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
                 },
             },
         },
-        TrackEvent {
-            delta: 0.into(),
-            kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
-        },
+        meta_event(0, midly::MetaMessage::EndOfTrack),
     ]);
     smf.save(&path).expect("sustain MIDI fixture");
     path
@@ -529,7 +531,10 @@ fn assert_control_and_channel_import(directory: &std::path::Path) {
         .arg("--instrument")
         .arg(fixture_path("instruments/basic-poly-synth.json"))
         .assert()
-        .success();
+        .success()
+        .stderr(predicates::str::contains(
+            "unsupported MIDI event was ignored",
+        ));
     let inspection = inspect(&controlled);
     assert_eq!(inspection["parts"][0]["tempo_changes"][1]["tick"], 240);
     assert_eq!(

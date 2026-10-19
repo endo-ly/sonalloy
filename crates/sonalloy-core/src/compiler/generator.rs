@@ -1370,21 +1370,21 @@ fn compile_spectral(
             spectral_asset_cache,
             diagnostics,
         );
-        if let (Some(source_a), Some(source_b)) = (source.as_ref(), prepared.as_ref())
-            && source_a.channels != source_b.channels
-        {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::SpectralPreparationFailed,
-                    "spectral asset A and asset B must have the same channel count",
-                )
-                .with_path(path)
-                .with_detail(format!(
-                    "asset A has {} channels, asset B has {} channels",
-                    source_a.channels, source_b.channels
-                )),
-            );
-            return None;
+        if let (Some(source_a), Some(source_b)) = (source.as_ref(), prepared.as_ref()) {
+            if source_a.channels != source_b.channels {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::SpectralPreparationFailed,
+                        "spectral asset A and asset B must have the same channel count",
+                    )
+                    .with_path(path)
+                    .with_detail(format!(
+                        "asset A has {} channels, asset B has {} channels",
+                        source_a.channels, source_b.channels
+                    )),
+                );
+                return None;
+            }
         }
         prepared
     });

@@ -920,16 +920,16 @@ pub(super) fn validate_sample(
                 zone.velocity_min,
                 zone.velocity_max,
             );
-            if let Some(previous) = groups.insert(group.clone(), ranges)
-                && previous != ranges
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "round robin group members must share key and velocity ranges",
-                    )
-                    .with_path(format!("{zone_path}.round_robin_group")),
-                );
+            if let Some(previous) = groups.insert(group.clone(), ranges) {
+                if previous != ranges {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "round robin group members must share key and velocity ranges",
+                        )
+                        .with_path(format!("{zone_path}.round_robin_group")),
+                    );
+                }
             }
         }
     }
@@ -1304,18 +1304,19 @@ fn validate_sample_playback_definition(
                 .with_path(format!("{path}.playback.loop.end_seconds")),
             );
         }
-        if let Some(end_seconds) = playback.region.end_seconds
-            && loop_definition.end_seconds.is_finite()
-            && end_seconds.is_finite()
-            && loop_definition.end_seconds > end_seconds
-        {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::DefinitionError,
-                    "sample loop end must be inside the playback region",
-                )
-                .with_path(format!("{path}.playback.loop.end_seconds")),
-            );
+        if let Some(end_seconds) = playback.region.end_seconds {
+            if loop_definition.end_seconds.is_finite()
+                && end_seconds.is_finite()
+                && loop_definition.end_seconds > end_seconds
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "sample loop end must be inside the playback region",
+                    )
+                    .with_path(format!("{path}.playback.loop.end_seconds")),
+                );
+            }
         }
         if loop_definition.crossfade_seconds.is_finite()
             && loop_definition.start_seconds.is_finite()

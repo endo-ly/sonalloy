@@ -77,16 +77,18 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
                 result[key] = value.clone();
             }
         }
-        if !drums && let Some(additions) = value.get("add_placements") {
-            let target = result
-                .as_object_mut()
-                .expect("mapping")
-                .entry("placements".to_owned())
-                .or_insert_with(|| serde_json::json!([]));
-            target
-                .as_array_mut()
-                .ok_or_else(|| Error::new(path, "expected placements list"))?
-                .extend(annotated(additions, "add_placements", name, path)?);
+        if !drums {
+            if let Some(additions) = value.get("add_placements") {
+                let target = result
+                    .as_object_mut()
+                    .expect("mapping")
+                    .entry("placements".to_owned())
+                    .or_insert_with(|| serde_json::json!([]));
+                target
+                    .as_array_mut()
+                    .ok_or_else(|| Error::new(path, "expected placements list"))?
+                    .extend(annotated(additions, "add_placements", name, path)?);
+            }
         }
         stack.pop();
         Ok(result)

@@ -799,10 +799,11 @@ impl InstrumentRuntime {
             .retired
             .iter_mut()
             .find(|generation| generation.generation_id() == old_id)
-            && let Some(global) = old.take_global()
         {
-            self.reclaimable
-                .push(ReclaimableRuntimeResource::global_processor(global));
+            if let Some(global) = old.take_global() {
+                self.reclaimable
+                    .push(ReclaimableRuntimeResource::global_processor(global));
+            }
         }
     }
 

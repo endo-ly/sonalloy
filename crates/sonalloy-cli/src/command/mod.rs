@@ -12,6 +12,7 @@ use crate::output::CliFailure;
 
 mod dev;
 mod instrument;
+mod preset;
 mod realtime;
 mod render;
 pub(crate) mod score;
@@ -26,7 +27,7 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
     name = "sonalloy",
     version,
     about = "Validate instruments and scores, render audio, and play from MIDI",
-    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
+    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, list and search built-in presets, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `preset list` to discover built-in sounds, command-specific `--help` for options, and `device list` to find audio and MIDI device IDs."
 )]
 pub(super) struct Cli {
     #[command(subcommand)]
@@ -44,6 +45,11 @@ enum Command {
     Score {
         #[command(subcommand)]
         command: score::ScoreCommand,
+    },
+    /// List and search built-in presets.
+    Preset {
+        #[command(subcommand)]
+        command: preset::PresetCommand,
     },
     /// Render an instrument, score, or MIDI file to audio.
     Render {
@@ -85,6 +91,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
         Command::Score { command } => score::run(command),
+        Command::Preset { command } => preset::run(command),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),

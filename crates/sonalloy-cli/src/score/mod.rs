@@ -93,10 +93,11 @@ impl Error {
             .context
             .as_deref()
             .and_then(|context| context.token_location.as_ref())
-            && let Some((line, column)) = source.token_location(&self.path, *offset, token)
         {
-            self.line = line;
-            self.column = column;
+            if let Some((line, column)) = source.token_location(&self.path, *offset, token) {
+                self.line = line;
+                self.column = column;
+            }
         }
         if self.line == 0 {
             let mut path = self.path.as_str();
@@ -284,15 +285,16 @@ pub(crate) struct PartWindow {
 impl ScorePlan {
     pub(crate) fn annotate_diagnostics(&self, diagnostics: &mut [sonalloy_core::Diagnostic]) {
         for diagnostic in diagnostics {
-            if diagnostic.detail.is_none()
-                && let Some(path) = diagnostic.path.as_deref()
-                && (path.starts_with("instruments.") || path.starts_with("meta."))
-            {
-                diagnostic.detail = Error::new(path, &diagnostic.message)
-                    .failure(&self.source)
-                    .diagnostics
-                    .remove(0)
-                    .detail;
+            if diagnostic.detail.is_none() {
+                if let Some(path) = diagnostic.path.as_deref() {
+                    if path.starts_with("instruments.") || path.starts_with("meta.") {
+                        diagnostic.detail = Error::new(path, &diagnostic.message)
+                            .failure(&self.source)
+                            .diagnostics
+                            .remove(0)
+                            .detail;
+                    }
+                }
             }
         }
     }
@@ -300,10 +302,11 @@ impl ScorePlan {
 
 #[derive(Debug, Clone, Default, clap::Args)]
 pub(crate) struct Bindings {
-    /// Root containing the preset category directories.
+    /// Preset root; takes precedence over `SONALLOY_PRESET_ROOT` and Score-relative presets/.
     #[arg(long, value_name = "DIRECTORY")]
     pub(crate) preset_root: Option<PathBuf>,
-    /// Bind an external instrument to its definition; repeat for each instrument.
+    /// Bind an `external: true` instrument as ID=DEFINITION; repeat for each. Fixed instruments,
+    /// unknown IDs, and duplicate bindings are rejected.
     #[arg(long = "bind", value_name = "ID=DEFINITION")]
     pub(crate) bind: Vec<String>,
 }

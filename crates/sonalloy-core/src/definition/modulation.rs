@@ -628,17 +628,18 @@ fn validate_mseg(diagnostics: &mut Vec<Diagnostic>, index: usize, mseg: &MsegDef
             "mseg duration must be finite and within its unit range",
         );
     }
-    if let Some(loop_range) = mseg.loop_range
-        && (loop_range.start_segment >= loop_range.end_segment
-            || loop_range.end_segment > mseg.segments.len())
-    {
-        diagnostics.push(
-            Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "mseg loop range must be within the segment list and non-empty",
-            )
-            .with_path(format!("{path}.loop_range")),
-        );
+    if let Some(loop_range) = mseg.loop_range {
+        if loop_range.start_segment >= loop_range.end_segment
+            || loop_range.end_segment > mseg.segments.len()
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "mseg loop range must be within the segment list and non-empty",
+                )
+                .with_path(format!("{path}.loop_range")),
+            );
+        }
     }
 }
 
