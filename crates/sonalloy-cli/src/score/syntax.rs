@@ -345,7 +345,7 @@ pub(super) fn connected_voicing(
         .collect();
     classes.sort_unstable();
     classes.dedup();
-    let mut candidates = vec![Vec::new()];
+    let mut positions_by_class = Vec::with_capacity(classes.len());
     for pc in classes {
         let positions: Vec<_> = (bass + 1..=ceiling)
             .filter(|n| n.rem_euclid(12) == pc)
@@ -356,37 +356,86 @@ pub(super) fn connected_voicing(
                 "voicing range contains no matching chord tone",
             ));
         }
-        candidates = candidates
-            .into_iter()
-            .flat_map(|candidate| {
-                positions.iter().map(move |n| {
-                    let mut next = candidate.clone();
-                    next.push(*n);
-                    next
-                })
-            })
-            .collect();
+        positions_by_class.push(positions);
     }
-    let distance = |a: &[i32], b: &[i32]| {
-        a.iter()
-            .map(|n| b.iter().map(|p| (n - p).abs()).min().unwrap_or(0))
-            .sum::<i32>()
-    };
-    for candidate in &mut candidates {
-        candidate.sort_unstable();
-    }
-    let mut best = candidates
-        .into_iter()
-        .min_by_key(|candidate| {
-            (
-                distance(candidate, reference) + distance(reference, candidate),
-                candidate.last().copied().unwrap_or(bass),
-                candidate.clone(),
-            )
-        })
-        .expect("candidate");
+    let mut candidate = Vec::with_capacity(positions_by_class.len());
+    let mut best = None;
+    search_connected_voicings(&positions_by_class, 0, &mut candidate, reference, &mut best);
+    let (_, _, mut best) = best.expect("voicing candidate");
     best.insert(0, bass);
     Ok(best)
+}
+
+fn search_connected_voicings(
+    positions_by_class: &[Vec<i32>],
+    index: usize,
+    candidate: &mut Vec<i32>,
+    reference: &[i32],
+    best: &mut Option<(i32, i32, Vec<i32>)>,
+) {
+    if index == positions_by_class.len() {
+        let distance = candidate
+            .iter()
+            .map(|note| {
+                reference
+                    .iter()
+                    .map(|previous| (note - previous).abs())
+                    .min()
+                    .unwrap_or(0)
+            })
+            .sum::<i32>()
+            + reference
+                .iter()
+                .map(|previous| {
+                    candidate
+                        .iter()
+                        .map(|note| (previous - note).abs())
+                        .min()
+                        .unwrap_or(0)
+                })
+                .sum::<i32>();
+        let highest = candidate.iter().copied().max().unwrap_or(i32::MIN);
+        let better = best
+            .as_ref()
+            .is_none_or(|(best_distance, best_highest, best_notes)| {
+                distance < *best_distance
+                    || (distance == *best_distance
+                        && (highest < *best_highest
+                            || (highest == *best_highest
+                                && lexicographically_less_unordered(candidate, best_notes))))
+            });
+        if better {
+            let mut notes = candidate.clone();
+            notes.sort_unstable();
+            *best = Some((distance, highest, notes));
+        }
+        return;
+    }
+
+    for note in &positions_by_class[index] {
+        candidate.push(*note);
+        search_connected_voicings(positions_by_class, index + 1, candidate, reference, best);
+        candidate.pop();
+    }
+}
+
+fn lexicographically_less_unordered(candidate: &[i32], sorted: &[i32]) -> bool {
+    let mut previous = None;
+    for expected in sorted {
+        let Some(note) = candidate
+            .iter()
+            .copied()
+            .filter(|note| previous.is_none_or(|previous| *note > previous))
+            .min()
+        else {
+            return false;
+        };
+        if note != *expected {
+            return note < *expected;
+        }
+        previous = Some(note);
+    }
+    false
 }
 
 pub(super) fn explicit_voicing(
@@ -1113,6 +1162,14 @@ mod tests {
             error.message,
             "voicing range contains no matching chord tone"
         );
+    }
+
+    #[test]
+    fn connected_voicing_handles_the_full_midi_range_with_bounded_memory() {
+        let chord = chord("1:13").unwrap().unwrap();
+        let result = connected_voicing(&chord, 0, 0, 127, None).unwrap();
+
+        assert_eq!(result, [0, 4, 7, 10, 14, 17, 21]);
     }
 
     #[test]

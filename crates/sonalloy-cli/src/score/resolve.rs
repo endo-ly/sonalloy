@@ -1071,7 +1071,7 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
                 melody(&doc["melodies"], string(name, &path)?, &path)?;
             }
             if let Some(note) = placement.get("degree") {
-                super::syntax::degree(string(note, &path)?).map_err(|e| e.at(&path))?;
+                super::syntax::pitch(string(note, &path)?).map_err(|e| e.at(&path))?;
             }
             if let Some(chord) = placement.get("chord") {
                 super::syntax::chord(string(chord, &path)?).map_err(|e| e.at(&path))?;

@@ -108,6 +108,28 @@ fn bass_chord_tone_tokens_follow_the_active_chord() {
 }
 
 #[test]
+fn placements_accept_chord_tone_pitch_tokens() {
+    let mut doc = document();
+    doc["sections"]["a"] = json!({
+        "chords": ["1:maj"],
+        "placements": [{
+            "instrument":"lead",
+            "at":{"bar":1,"step":1},
+            "degree":"c3",
+            "duration_steps":4
+        }]
+    });
+
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead")
+            .iter()
+            .map(|note| note.2)
+            .collect::<Vec<_>>(),
+        [64]
+    );
+}
+
+#[test]
 fn bass_chord_tone_root_must_fit_the_instrument_range() {
     let mut doc = document();
     doc["sections"]["a"] = json!({
