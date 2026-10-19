@@ -15,7 +15,7 @@ drums:
     parts:
       preview: "...o | X..o | .o.. | X.o."
     overrides:
-      - {when: {bar: last}, parts: {preview: "..o. | X..o | .o.o | [ooooxX]"}}
+      - {when: {bars: [last]}, parts: {preview: "..o. | X..o | .o.o | [ooooxX]"}}
 instruments:
   preview:
     preset: "DRUM/030-cardboard-body-snare"

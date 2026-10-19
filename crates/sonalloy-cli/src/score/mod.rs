@@ -490,7 +490,7 @@ pub(crate) fn to_yaml(
 #[cfg(test)]
 mod tests {
     fn document() -> serde_json::Value {
-        serde_json::json!({"meta":{"title":"Timing","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lead":{"instrument":"part","melody":"phrase"}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},"instruments":{"part":{"external":true}}})
+        serde_json::json!({"meta":{"title":"Timing","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lines":{"main":{"instrument":"part","melody":"phrase"}}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},"instruments":{"part":{"external":true}}})
     }
 
     #[test]
@@ -617,7 +617,7 @@ mod tests {
         let diagnostic = |doc: &serde_json::Value, melody: &str, source_path: &str| {
             let mut doc = doc.clone();
             doc["meta"]["title"] = serde_json::json!("青い夜");
-            doc["sections"]["phrase"]["lead"] = serde_json::json!({
+            doc["sections"]["phrase"]["lines"]["main"] = serde_json::json!({
                 "instrument": "part",
                 "melody": melody
             });
@@ -670,7 +670,7 @@ mod tests {
 
         let mut used = document();
         used["melodies"]["source"] = serde_json::json!([". - - - | - - - - | - - - - | - - - -"]);
-        used["melodies"]["use_copy"] = serde_json::json!([{"use":"source","bars":[1,1]}]);
+        used["melodies"]["use_copy"] = serde_json::json!([{"use":"source","items":[1,1]}]);
         diagnostic(&used, "use_copy", "melodies.source[0]");
     }
 

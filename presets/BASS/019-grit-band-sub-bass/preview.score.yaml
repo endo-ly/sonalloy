@@ -13,9 +13,10 @@ form:
     scale: "aeolian"
 sections:
   phrase:
-    lead:
-      instrument: "preview"
-      melody: "riff"
+    lines:
+      riff:
+        instrument: "preview"
+        melody: "riff"
 melodies:
   riff:
     - "1@112 - - . | . 1@58 . b3@96~ | 4 - . b7,@104 | 1@92 . 5,@70 ."
