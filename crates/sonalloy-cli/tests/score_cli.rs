@@ -46,6 +46,16 @@ fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
             delta: 0.into(),
             kind: TrackEventKind::Midi {
                 channel: 0.into(),
+                message: MidiMessage::Controller {
+                    controller: 7.into(),
+                    value: 100.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
                 message: MidiMessage::PitchBend {
                     bend: midly::PitchBend::from_int(4096),
                 },
@@ -529,7 +539,10 @@ fn assert_control_and_channel_import(directory: &std::path::Path) {
         .arg("--instrument")
         .arg(fixture_path("instruments/basic-poly-synth.json"))
         .assert()
-        .success();
+        .success()
+        .stderr(predicates::str::contains(
+            "unsupported MIDI event was ignored",
+        ));
     let inspection = inspect(&controlled);
     assert_eq!(inspection["parts"][0]["tempo_changes"][1]["tick"], 240);
     assert_eq!(

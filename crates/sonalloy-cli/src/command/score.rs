@@ -12,7 +12,7 @@ use std::process::ExitCode;
 pub(super) enum ScoreCommand {
     /// Create a valid one-bar Score YAML file.
     #[command(
-        long_about = "Create a one-bar Score YAML example that references the built-in `LEAD/001-analog-saw-lead` preset. The destination must not already exist. At runtime, built-in preset references are resolved through `--preset-root`, `SONALLOY_PRESET_ROOT`, or a `presets/` directory found from the Score's parent directories."
+        long_about = "Create a one-bar Score YAML example that references the built-in `LEAD/001-analog-saw-lead` preset. The destination must not already exist. When you later validate, render, or audition the generated Score, built-in preset references are resolved through the command's `--preset-root`, `SONALLOY_PRESET_ROOT`, or a `presets/` directory found from the Score's parent directories."
     )]
     Init { path: PathBuf },
     /// Validate score syntax, musical semantics, references, and instruments.
@@ -20,9 +20,9 @@ pub(super) enum ScoreCommand {
         long_about = "Parse the Score YAML, expand its form and patterns, resolve instrument definitions, and compile referenced instruments. Validation covers Score structure, note and control events, instrument references and capabilities, and external audio routing. Use `--bind` for each `external: true` instrument. `--json` returns the validation status and diagnostics."
     )]
     Validate(ScoreArgs),
-    /// Inspect the resolved timeline and instrument events.
+    /// Inspect the Score overview or expanded event timeline.
     #[command(
-        long_about = "Expand the Score and inspect its resolved timeline. The default output lists event details; `--summary` reports counts and duration for the whole Score, sections, and instruments. `--summary` can be combined with `--json`. `--preview-json` emits normalized browser preview data and requires one instrument, one constant tempo and time signature, and only 1..=32 note events. The Score must be at most 10 seconds, use 30..=300 BPM, and have a meter numerator no greater than 32. It cannot be combined with `--json` or `--summary`."
+        long_about = "Expand the Score and inspect its resolved timeline. The default text output shows the title, duration, section form, and per-instrument note counts; it does not include individual events. Detailed JSON includes the expanded event timeline. Summary output aggregates the whole Score, form occurrences, and instruments and can be returned as text or JSON. Browser preview data requires one instrument, one constant tempo and time signature, and only 1..=32 note events. The Score must be at most 10 seconds, use 30..=300 BPM, and have a meter numerator no greater than 32. Preview output cannot be combined with detailed JSON or summary output."
     )]
     Inspect(InspectArgs),
     /// Export a complete Type 1 Standard MIDI File.
@@ -38,7 +38,7 @@ pub(super) enum ScoreCommand {
     },
     /// Import one MIDI note channel into Score YAML without quantization.
     #[command(
-        long_about = "Import a Standard MIDI File into Score YAML without quantizing note timing. Notes, tempo and time-signature changes, sustain pedal, pitch bend, mod wheel, and channel aftertouch are preserved. The generated Score references the supplied instrument Definition and uses `--tonic` as its tonal center. If the file has notes on one channel, that channel is selected automatically; files with multiple note channels require `--channel` (1..=16). Unsupported MIDI events are ignored with diagnostics. The destination must not already exist."
+        long_about = "Import a Standard MIDI File into Score YAML without quantizing note timing. Notes, tempo and time-signature changes, sustain pedal, pitch bend, mod wheel, and channel aftertouch are preserved. A file with one note channel selects it automatically; files with multiple note channels require `--channel`. Unsupported MIDI events are ignored and reported as warnings on standard error in text mode or in the JSON diagnostics."
     )]
     ImportMidi {
         /// Standard MIDI File to import.
@@ -184,7 +184,7 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
             instrument,
             channel,
             tonic,
-            json: _,
+            json,
         } => {
             ensure_new(&output)?;
             let parsed = crate::midi::parse_midi(&midi).map_err(|diagnostics| CliFailure {
@@ -202,6 +202,9 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 std::fs::canonicalize(instrument).map_err(|e| failure(&output, e.to_string()))?;
             let doc = import_document(&events, &instrument, &tonic)?;
             write_score(&output, &doc)?;
+            if !json {
+                print_warnings(&diagnostics);
+            }
             Ok(
                 json!({"status":"ok","output":output,"diagnostics":crate::output::diagnostic_values(&diagnostics)}),
             )
