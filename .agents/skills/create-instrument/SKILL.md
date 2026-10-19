@@ -13,7 +13,7 @@ Sonalloyでは、JSONで音源を定義し、Score YAMLで楽曲や試奏を記�
 
 | 作業 | 参照先 |
 |---|---|
-| プリセット探索 | `sonalloy preset list`、検索条件は `sonalloy preset list --help` |
+| プリセット探索 | `sonalloy preset list` |
 | CLI操作 | 該当コマンドの `--help` |
 | Definition構造 | [Definition仕様](references/definition.md) |
 | Generatorの設定 | [Generator仕様](references/generators.md) |
