@@ -1,6 +1,6 @@
 # CLI詳細仕様
 
-Sonalloy CLIは、音源定義とScoreを検証し、音声をレンダリングし、MIDIやAudio Deviceと接続します。引数、Option、既定値、制約、操作例は各コマンドの `--help` を正本とし、本書ではJSON Report、診断、演奏データの入出力契約を説明します。
+Sonalloy CLIは、音源定義とScoreを検証し、音声をレンダリングし、MIDIやAudio Deviceと接続します。引数、Option、既定値、制約は各コマンドの `--help` を正本とし、本書ではJSON Report、診断、演奏データの入出力契約を説明します。
 
 ## JSON出力と診断の共通契約
 
