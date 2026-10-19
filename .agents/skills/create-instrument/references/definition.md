@@ -139,12 +139,9 @@ Note OnのVelocityは、Layerの発音条件、Generator固有の制御、Modula
 
 1. `trigger.velocity_min`〜`velocity_max`はLayerの発音範囲です。
 2. GeneratorごとのVelocity制御は各仕様に従います。Sample Generatorは各ZoneのVelocity範囲で再生Zoneを選びます。
-3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。RouteのID、Unit、計算規則は[Modulation仕様](modulation.md)に従います。
+3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。RouteのID、Unit、計算規則は[Modulation仕様](modulation.md)に従います。全体構造の例では、`layer.body.gain`へのRouteがVelocityに応じて最大8 dBを加算します。
 
-Layerの`gain_db`はLayerの基準音量です。Velocityによる音量差を作る最小例は次のとおりです。
-このRouteはVelocityに応じてLayer Gainを最大8 dB加算します。具体的なRoute例とDepth Unitは[Modulation仕様](modulation.md)を参照してください。
-
-Layerの全体例は「全体構造」の例にある`layers[0]`です。
+Layerの`gain_db`はLayerの基準音量です。Layer構造の例は「全体構造」の`layers[0]`を参照してください。
 
 Open HatとClosed Hatのような排他発音では、別々のNote範囲を持つLayerに同じ`choke_group: "hats"`を指定します。実際に発音するLayerだけがChokeを起こし、同Groupの古いLayerはADSRのRelease設定によらず5msで停止します。Voice内の他GroupのLayerとGlobal Processorの残響は継続します。`performance.choke_groups`も宣言した場合は、Keyに応じたNote全体の停止も適用されます。
 
@@ -216,19 +213,18 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 }
 ```
 
-外部AudioのConsumerはGlobal Processorか、Instrument単位のEnvelope Followerです。Gate / CompressorはGlobal Chainで`detector: "external_audio"`を指定すると外部Sidechainとして動作し、通常の`"self_signal"`では処理中の信号を検出します。Vocoderは外部Audioの帯域EnvelopeをCarrierへ適用し、Envelope Transferは入力振幅をGain変化へ、Spectral Morphは入力SpectrumをMagnitude Morphへ使います。各Processorの設定FieldとLatencyは[Processor仕様](processors.md)、Envelope FollowerのSource Fieldは[Modulation仕様](modulation.md)を参照してください。
+外部Audio Busは、Instrument単位のEnvelope FollowerまたはGlobal Processorから利用できます。Gate / Compressorの外部DetectorとCross Synthesis ProcessorはGlobal Chainに限ります。Processorの共通設定は[Processor仕様](processors.md)、Envelope FollowerのSourceは[Modulation仕様](modulation.md)を参照してください。
 
 | Consumer | 入力の用途 |
 |---|---|
 | Envelope Follower | 左右をリンクした入力振幅をModulation Sourceとして使う |
-| External Sidechain | Global Gate / Compressorの検出信号として使う |
+| External Sidechain | 入力をGate / Compressorの検出信号として使う |
 | Vocoder | 左右別の帯域EnvelopeをCarrierへ適用する |
 | Envelope Transfer | 左右をリンクした入力振幅で信号のGainを制御する |
 | Spectral Morph | 左右別のSpectrumをCarrierのMagnitude Morphに使う |
 
-- 入力を要求するConsumerがある場合は`external_audio`を省略できません
-- 入力Busを宣言してもConsumerがない定義、複数のVocoderまたはSpectral Morph、Voice / Layerへ置いたCross Synthesis ProcessorはValidation Errorになります
-- Gate / Compressorの外部DetectorはGlobal Chainだけで使えます
+- 入力を要求するConsumerがある場合は`external_audio`が必要です。Consumerを持たない入力Busは無効です
+- VocoderとSpectral Morphはそれぞれ1つまでです。Cross Synthesis ProcessorはVoice / Layer Chainへ置けません
 
 ## コンパイル時の変換
 
@@ -256,8 +252,6 @@ Sample、Wavetable、Spectral、Granular、Wave SequenceとConvolutionは、Defi
 | Wavetable | Compile時にResampleしない | MonoへDownmixする |
 | Spectral | 処理Sample Rateへ変換してSTFT解析し、Rate依存のFrameを作る | A/B AssetのChannel数を一致させる |
 | Convolution Processor | 処理Sample Rateへ準備する | Mono / Stereo IRを使う |
-
-WavetableのMono化や通常のResampleは仕様どおりの準備処理です。Asset Path、Hash、Decodeの失敗はCompile Errorになります。
 
 **ErrorとWarning**
 

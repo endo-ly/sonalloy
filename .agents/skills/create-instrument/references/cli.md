@@ -2,28 +2,29 @@
 
 Sonalloy CLIは、音源定義とScoreを検証し、音声をレンダリングし、MIDIやAudio Deviceと接続します。引数、Option、既定値、制約、操作例は各コマンドの `--help` を正本とし、本書ではJSON Report、診断、演奏データの入出力契約を説明します。
 
-## コマンドと参照方法
+## JSON出力と診断の共通契約
 
-まず対象コマンドの説明を表示します。
+`--json`は成功時のReportを標準出力へ出し、通常表示のWarningはJSON時にはReport内の`diagnostics`へ含めます。コマンドの実行開始後に失敗した場合、対応コマンドは次の構造で診断を返します。
 
-```bash
-sonalloy --help
-sonalloy preset list --help
-sonalloy instrument inspect --help
-sonalloy score inspect --help
-sonalloy render score --help
+```json
+{
+  "status": "error",
+  "exit_code": 2,
+  "diagnostics": [
+    {
+      "code": "PARAMETER_NOT_FOUND",
+      "severity": "error",
+      "path": "--trace",
+      "message": "trace parameter id is not present in the compiled catalog",
+      "detail": "definitely.missing.parameter"
+    }
+  ]
+}
 ```
 
-| 操作 | 詳細 |
-|---|---|
-| プリセットを調べる | `preset list`。検索条件とJSON出力はコマンドのヘルプを参照 |
-| 音源を作成・検証・比較・解析する | `instrument init / validate / report / inspect` |
-| Scoreを作成・検証・解析する | `score init / validate / inspect` |
-| ScoreとMIDIを変換する | `score import-midi / export-midi` |
-| 音声を出力する | `render note / events / midi / score` |
-| Audio Deviceで試聴・演奏する | `audition`、`device list`、`play` |
-| 詳細な音源構造を調べる | [Definition](definition.md)、[Generator](generators.md)、[Processor](processors.md)、[Modulation](modulation.md) |
-| Scoreの文法と演奏規則を調べる | [Score YAML](score_spec.md) |
+Clapによる引数構文や値のエラーは標準エラーへ表示され、終了コード2で終了します。これはコマンド実行後のJSON診断には含まれません。Warningを持つ成功Reportは終了コード0です。
+
+## Preset一覧
 
 プリセット一覧はビルド時にCLIへ埋め込まれ、実行時の作業ディレクトリに依存しません。JSON Reportの形式は次のとおりです。
 
@@ -47,28 +48,6 @@ sonalloy render score --help
 ```
 
 `id`は管理用ID、`preset`はScoreから参照する値です。説明と作者は元のメタデータがある場合に含まれます。検索はID、Score参照値、名前、説明、カテゴリ、タグに対する大文字小文字を区別しない部分一致で、結果はカテゴリと管理用IDの安定した順序を保ちます。該当なしは終了コード0で、`count: 0`と空の配列を返します。
-
-## JSON出力と診断の共通契約
-
-`--json`は成功時のReportを標準出力へ出し、通常表示のWarningはJSON時にはReport内の`diagnostics`へ含めます。コマンドの実行開始後に失敗した場合、対応コマンドは次の構造で診断を返します。
-
-```json
-{
-  "status": "error",
-  "exit_code": 2,
-  "diagnostics": [
-    {
-      "code": "PARAMETER_NOT_FOUND",
-      "severity": "error",
-      "path": "--trace",
-      "message": "trace parameter id is not present in the compiled catalog",
-      "detail": "definitely.missing.parameter"
-    }
-  ]
-}
-```
-
-Clapによる引数構文や値のエラーは標準エラーへ表示され、終了コード2で終了します。これはコマンド実行後のJSON診断には含まれません。Warningを持つ成功Reportは終了コード0です。
 
 ## Instrumentの検証・解析Report
 
@@ -96,7 +75,7 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 
 `score validate --json`は成功時に`status`、セクション数、楽器数、`diagnostics`を返します。Score YAMLの構文、参照、演奏イベント、音源能力、Audio配線を検証します。
 
-`score inspect --json`は展開済みScoreを返します。詳細Reportにはセクション、楽器、Lane、Partごとのイベント、時間情報、診断が含まれます。Scoreの文法と演奏意味論は[Score仕様](score_spec.md)を参照してください。
+通常のテキスト出力は曲名、演奏時間、Section構成、楽器ごとの音符数を示し、個々のEventは表示しません。`score inspect --json`は展開済みScoreを返し、Section、Instrument、Lane、PartごとのEvent、時間情報、診断を含みます。Scoreの文法と演奏意味論は[Score仕様](score_spec.md)を参照してください。
 
 `score inspect --summary`はイベント明細を省いた集計を返します。
 
@@ -115,6 +94,18 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 ### Event Sequence入力
 
 `render events`はNoteやParameter変更を絶対Frame位置で処理します。JSONのトップレベルは`events`配列で、各要素に`absolute_frame`と`type`を指定します。
+
+次の例は、Noteを開始し、再生中にLayer Gainを変更してからNoteを解放します。選択したDefinitionに`layer.body.gain`がある場合に使えます。
+
+```json
+{
+  "events": [
+    { "absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100 },
+    { "absolute_frame": 12000, "type": "parameter_change", "parameter": "layer.body.gain", "native_value": -12.0 },
+    { "absolute_frame": 24000, "type": "note_off", "note_id": 1 }
+  ]
+}
+```
 
 | `type` | 必須Field | 動作 |
 |---|---|---|
@@ -234,4 +225,4 @@ Render系コマンドは、32-bit float、Stereo、指定Sample RateのWAVを出
 | 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |
 | Realtime I/O | `AUDIO_DEVICE_ERROR` |
 
-Generator固有の診断Codeは[Generator仕様](generators.md)の各項目と実行診断を参照します。該当するCodeは`GENERATOR_UNSUPPORTED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`、`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`SPECTRAL_PREPARATION_FAILED`、`UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE`、`INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER`、`INVALID_SEQUENCE`、`INVALID_STEP_DURATION`です。Operator Modulationの設定Errorには`VALUE_OUT_OF_RANGE`または`DEFINITION_ERROR`が使われます。有効なLayerまたはProcessorが必要とするAssetの欠落・Decode失敗はCompile Errorです。
+Generator固有の診断Codeは`GENERATOR_UNSUPPORTED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`、`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`SPECTRAL_PREPARATION_FAILED`、`UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE`、`INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER`、`INVALID_SEQUENCE`、`INVALID_STEP_DURATION`です。Operator Modulationの設定Errorには`VALUE_OUT_OF_RANGE`または`DEFINITION_ERROR`が使われます。有効なLayerまたはProcessorが必要とするAssetの欠落・Decode失敗はCompile Errorです。

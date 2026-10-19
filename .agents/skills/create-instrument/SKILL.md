@@ -9,7 +9,7 @@ Sonalloyでは、JSONで音源を定義し、Score YAMLで楽曲や試奏を記�
 
 ## 概要と参照方法
 
-操作方法は対象コマンドの `--help`、データ形式と動作規則は各リファレンスを参照します。
+操作方法と仕様の参照先を作業別に示します。
 
 | 作業 | 参照先 |
 |---|---|
@@ -52,7 +52,7 @@ Note
 | 音色を時間変化させる | Wavetable、Spectral |
 | Noiseや短い成分を加える | Noise、短いSample |
 
-複数の音源方式を使う場合は、一度に増やしすぎず、各Layerを個別に聴いて役割を確認してから重ねます。
+複数の音源方式を使う場合は、一度に増やしすぎず、各Layerの役割を確かめてから重ねます。Layer単独の音を聴くには、元Definitionと同じDirectoryに検証用コピーを作り、対象以外のLayerを`enabled: false`にしてから`render note`を実行します。`render note`はDefinition全体の有効なLayerを鳴らすため、Layer選択Optionはありません。
 
 | 構成 | Layerの組合せ例 |
 |---|---|
@@ -63,9 +63,9 @@ Note
 
 ### Definitionを組み立てる
 
-Layerごとに発音条件とADSRを調整します。DecayとSustainは役割に応じて選び、Releaseは音の終わりが自然になる長さにします。Generator、Processor、Modulationを追加するたびに、対象のLayerを単独でレンダリングして効果を確かめます。
+Layerごとに発音条件とADSRを調整します。DecayとSustainは役割に応じて選び、Releaseは音の終わりが自然になる長さにします。Generator、Processor、Modulationは、前節の検証用Definitionで効果を確かめ、最後に有効なLayerを戻して全体を聴きます。
 
-各Generatorのフィールドと制約は[Generator仕様](references/generators.md)、Processorの配置と設定は[Processor仕様](references/processors.md)を参照します。共通Parameter ID、Modulation Unit、Route計算は[Modulation仕様](references/modulation.md)に従います。実際のIDと範囲は `instrument inspect --json` で確認できます。
+実際のParameter IDと範囲は `instrument inspect --json` で確認して設定します。
 
 ```json
 "modulation": {
@@ -79,11 +79,11 @@ Layerごとに発音条件とADSRを調整します。DecayとSustainは役割�
 }
 ```
 
-VelocityとKey Trackingは組み込みSourceのため、Source定義なしでRouteから参照できます。RouteのID、Unit、Depthの解釈は[Modulation仕様](references/modulation.md)を確認します。
+VelocityとKey Trackingは組み込みSourceのため、Source定義なしでRouteから参照できます。
 
 ### WAV Assetを用意する
 
-Sample、Wavetable、Spectral、Granular、Wave Sequence、ConvolutionではWAVを参照できます。PathはDefinitionのあるDirectoryからの相対Path、または絶対Pathです。共有するDefinitionでは相対Pathを使うと移動しやすくなります。共通の形式、Hash、Sample Rate、Channelの扱いは[Definition仕様](references/definition.md#コンパイル時の変換)を参照します。
+Sample、Wavetable、Spectral、Granular、Wave Sequence、ConvolutionではWAVを参照できます。PathはDefinitionのあるDirectoryからの相対Path、または絶対Pathです。共有するDefinitionでは相対Pathを使うと移動しやすくなります。
 
 `sha256`を指定する場合は、WAVのSHA-256を記録します。
 
@@ -101,17 +101,17 @@ Assetの欠落、Hash不一致、Decodeや準備の失敗はValidationまたはC
 
 ### 用途に合う音源を選ぶ
 
-`sonalloy preset list`で収録音源を確認し、`--query`を使う場合は `sonalloy preset list --help` を参照します。管理用IDとScoreから参照するPreset値の両方を確認できます。検索語は音色名や説明、カテゴリ、タグなどから選び、カテゴリを演奏上の役割として固定しません。旋律音を探す場合もLEADだけでなく、PLUCK、MALLET、KEYSなどから音域や発音特性に合う音色を選べます。
+`sonalloy preset list`で収録音源を確認し、管理用IDとScoreから参照するPreset値の両方を見ます。音色名、説明、カテゴリ、タグなどで一覧を絞り込み、カテゴリを演奏上の役割として固定せず、音域や発音特性に合う音色を選びます。
 
-一覧の説明はビルド時に埋め込まれたメタデータです。Scoreを演奏・レンダリングする環境には、Preset Definitionと必要なAssetも必要です。ScoreからのPreset解決規則は[Score仕様](references/score_spec.md)を参照します。
+一覧の説明はビルド時に埋め込まれたメタデータです。Scoreを演奏・レンダリングする環境には、Preset Definitionと必要なAssetも必要です。
 
 ### Scoreで楽曲を記述する
 
-`score init <path>`でScore YAMLのひな形を作り、曲の構成、調性、テンポ、拍子、楽器、旋律や伴奏を編集します。Scoreの文法、時間、コード、セクション、イベントの規則は[Score仕様](references/score_spec.md)を参照します。
+`score init <path>`でScore YAMLのひな形を作り、曲の構成、調性、テンポ、拍子、楽器、旋律や伴奏を編集します。
 
 制作時は、旋律だけでなく、低音、和声、リズム、音色のアタックと余韻を合わせて確認します。セクション間で素材を再利用し、曲全体で音域や密度に変化をつけます。各楽器の音量や定位を調整してから、複数楽器をまとめて聴きます。
 
-Presetの試聴Scoreは `preview.score.yaml` を使い、同じ演奏内容を詳細に試聴する場合も同じファイルを使います。別の演奏内容で奏法を試す場合は `showcase.score.yaml` を用意します。共通Scoreは `presets/common-scores/` にあり、外部Definitionを割り当てる楽器には `--bind` を指定します。引数形式や制約はコマンドのヘルプを参照してください。
+Presetの試聴Scoreは `preview.score.yaml` を使い、同じ演奏内容を詳細に試聴する場合も同じファイルを使います。別の演奏内容で奏法を試す場合は `showcase.score.yaml` を用意します。共通Scoreは `presets/common-scores/` にあり、外部Definitionを割り当てる楽器には `--bind` を指定します。
 
 MIDIをScoreへ取り込む場合は `score import-midi`、ScoreをMIDIへ書き出す場合は `score export-midi` を使います。ScoreとMIDIの変換で保持・省略される情報は[Score仕様](references/score_spec.md)に記載しています。
 
@@ -130,8 +130,6 @@ MIDIをScoreへ取り込む場合は `score import-midi`、ScoreをMIDIへ書き
 | Score | `score validate`、`score inspect` | 構文・参照・演奏内容、展開後Timeline |
 | 楽曲 | `render score` | Part、Section、Mix、Stem、Master |
 | Realtime試聴 | `audition`、`play` | Audio DeviceやMIDI Inputを使う演奏 |
-
-操作条件やOptionは各コマンドの `--help`、JSONの構造や診断の詳細は[CLI詳細仕様](references/cli.md)を参照します。
 
 Definitionは次の順で確認します。
 
@@ -173,4 +171,4 @@ Modulationが意図した範囲を動くかはInspectでParameter IDと許容範
 sonalloy render note <definition> --note 60 --velocity 127 --analyze --output out/<name>/max-velocity.wav
 ```
 
-Analysisの`level.over_full_scale`が`false`であることを確認し、最後に生成したWAVと完成Scoreを試聴します。Warningを含め診断を確認し、問題があれば該当DefinitionやScoreを修正して検証・試聴を繰り返します。診断CodeとExit Codeの意味は[CLI詳細仕様](references/cli.md)を参照します。
+Analysisの`level.over_full_scale`が`false`であることを確認し、最後に生成したWAVと完成Scoreを試聴します。Warningを含め診断を確認し、問題があれば該当DefinitionやScoreを修正して検証・試聴を繰り返します。
