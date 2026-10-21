@@ -2559,6 +2559,23 @@ mod tests {
                 && diagnostic.path.as_deref()
                     == Some("layers[0].generator.sample.normalize.reference_zone")
         }));
+
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
+        };
+        let normalize = sample
+            .normalize
+            .as_mut()
+            .expect("normalization is configured");
+        normalize.scope = SampleNormalizationScope::Zone;
+        normalize.target_db = -6.0;
+        normalize.reference_zone = Some("main".to_owned());
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.normalize.reference_zone")
+        }));
     }
 
     #[test]
