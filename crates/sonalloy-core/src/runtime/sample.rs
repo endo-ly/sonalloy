@@ -24,6 +24,8 @@ enum StretchLifecycle {
 pub(crate) struct SampleRuntime {
     source: Option<Arc<PreparedAudio>>,
     root_note: u8,
+    pitch_tracking: bool,
+    gain_linear: f32,
     position: f64,
     direction: CompiledSampleDirection,
     start_frame: usize,
@@ -53,6 +55,8 @@ impl SampleRuntime {
         Self {
             source: None,
             root_note: 60,
+            pitch_tracking: true,
+            gain_linear: 1.0,
             position: 0.0,
             direction: CompiledSampleDirection::Forward,
             start_frame: 0,
@@ -131,6 +135,8 @@ impl SampleRuntime {
         };
         self.source = Some(Arc::clone(source));
         self.root_note = zone.root_note;
+        self.pitch_tracking = zone.pitch_tracking;
+        self.gain_linear = zone.gain_linear;
         self.direction = zone.playback.direction;
         self.start_frame = zone.playback.start_frame;
         self.end_frame = zone.playback.end_frame;
@@ -164,6 +170,8 @@ impl SampleRuntime {
         }
         self.source = None;
         self.root_note = 60;
+        self.pitch_tracking = true;
+        self.gain_linear = 1.0;
         self.position = 0.0;
         self.direction = CompiledSampleDirection::Forward;
         self.start_frame = 0;
@@ -305,8 +313,12 @@ impl SampleRuntime {
             process_frames = process_frames.min(self.next_interval_boundary());
             if self.stretch_interval_phase.is_none() || self.stretch_interval_phase == Some(0) {
                 let tuning = interpolate_tuning(tuning_start, tuning_end, output_offset, frames);
-                let semitones =
-                    f64::from(note_number) - f64::from(self.root_note) + f64::from(tuning) / 100.0;
+                let pitch_offset = if self.pitch_tracking {
+                    f64::from(note_number) - f64::from(self.root_note)
+                } else {
+                    0.0
+                };
+                let semitones = pitch_offset + f64::from(tuning) / 100.0;
                 self.stretcher
                     .as_mut()
                     .ok_or(ProcessError::ProcessorFailure {
@@ -667,6 +679,18 @@ impl SampleRuntime {
     pub(crate) fn root_note(&self) -> u8 {
         self.root_note
     }
+
+    pub(crate) fn pitch_note_number(&self, note_number: u8) -> u8 {
+        if self.pitch_tracking {
+            note_number
+        } else {
+            self.root_note
+        }
+    }
+
+    pub(crate) fn gain_linear(&self) -> f32 {
+        self.gain_linear
+    }
 }
 
 #[allow(
@@ -877,6 +901,8 @@ mod tests {
         };
         let zone = zone(source, playback);
         CompiledSample {
+            note_off_behavior: crate::definition::SampleNoteOffBehavior::Release,
+            normalize: None,
             zones: vec![zone].into_boxed_slice(),
             groups: Vec::new().into_boxed_slice(),
             stretch_latency: Some(CompiledStretchLatency {
@@ -933,6 +959,11 @@ mod tests {
             id: "test".to_owned(),
             source: Some(Arc::new(source)),
             root_note: 60,
+            pitch_tracking: true,
+            gain_db: 0.0,
+            normalize_gain_db: 0.0,
+            effective_gain_db: 0.0,
+            gain_linear: 1.0,
             key_min: 0,
             key_max: 127,
             velocity_min: 1,

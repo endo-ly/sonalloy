@@ -19,8 +19,9 @@ use crate::definition::{
     AdditiveDefinition, AssetReference, FormantDefinition, GeneratorDefinition, GranularDefinition,
     ModalDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
     OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PhysicalExciterDefinition,
-    PhysicalStringDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
-    SpectralDefinition, UnisonDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    PhysicalStringDefinition, SampleNormalizationDefinition, SampleNoteOffBehavior,
+    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
+    UnisonDefinition, WaveSequenceDefinition, WaveSequenceDirection,
     WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
@@ -410,6 +411,10 @@ pub struct CompiledFormant {
 /// Compiled sample configuration and prepared zones.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledSample {
+    /// Note Off behavior for layers using this Sample Generator.
+    pub note_off_behavior: SampleNoteOffBehavior,
+    /// Normalization configuration retained for inspection.
+    pub normalize: Option<SampleNormalizationDefinition>,
     /// Zones in Definition order.
     pub zones: Box<[CompiledSampleZone]>,
     /// Round Robin groups in stable Definition order.
@@ -568,6 +573,16 @@ pub struct CompiledSampleZone {
     pub source: Option<Arc<PreparedAudio>>,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
+    /// Whether MIDI note changes alter the sample playback pitch.
+    pub pitch_tracking: bool,
+    /// User-specified zone gain in decibels.
+    pub gain_db: f32,
+    /// Gain in decibels supplied by normalization.
+    pub normalize_gain_db: f32,
+    /// Combined zone and normalization gain in decibels.
+    pub effective_gain_db: f32,
+    /// Combined zone and normalization gain as a linear amplitude.
+    pub gain_linear: f32,
     /// Lowest accepted MIDI note.
     pub key_min: u8,
     /// Highest accepted MIDI note.
@@ -1895,6 +1910,11 @@ fn compile_sample(
             id: zone.id.clone(),
             source: None,
             root_note: zone.root_note,
+            pitch_tracking: zone.pitch_tracking,
+            gain_db: zone.gain_db,
+            normalize_gain_db: 0.0,
+            effective_gain_db: zone.gain_db,
+            gain_linear: db_to_linear(zone.gain_db),
             key_min: zone.key_min,
             key_max: zone.key_max,
             velocity_min: zone.velocity_min,
@@ -1993,6 +2013,8 @@ fn compile_sample(
     };
 
     CompiledSample {
+        note_off_behavior: sample.note_off_behavior,
+        normalize: sample.normalize.clone(),
         zones: zones.into_boxed_slice(),
         groups,
         stretch_latency,

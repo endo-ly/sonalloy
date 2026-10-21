@@ -580,10 +580,18 @@ impl VoiceRuntime {
             self.started_at_frame,
         );
         for (index, layer) in self.layers.iter_mut().enumerate() {
+            let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
             if layer.active {
-                layer.note_off();
+                let ignore_note_off = matches!(
+                    &compiled_layer.generator,
+                    CompiledGenerator::Sample(sample)
+                        if sample.note_off_behavior
+                            == crate::definition::SampleNoteOffBehavior::Ignore
+                );
+                if !ignore_note_off {
+                    layer.note_off();
+                }
             } else if layer.armed {
-                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
                 layer.start_armed(note, compiled_layer)?;
             }
         }

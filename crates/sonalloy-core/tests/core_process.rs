@@ -1759,6 +1759,130 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
 }
 
 #[test]
+fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let render = |source: &InstrumentDefinition,
+                  note_number: u8,
+                  note_off_frame: Option<u64>,
+                  duration_frames: usize| {
+        let instrument = compile_instrument(
+            source,
+            &CompileContext {
+                definition_base_dir: base_dir.clone(),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+            },
+        )
+        .instrument
+        .expect("sample definition compiles");
+        let mut events = vec![ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number,
+                velocity: 100,
+            },
+        }];
+        if let Some(absolute_frame) = note_off_frame {
+            events.push(ScheduledEvent {
+                absolute_frame,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            });
+        }
+        render_instrument(
+            instrument,
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size: 257,
+                duration_frames: duration_frames.try_into().expect("frame count fits u64"),
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("sample render succeeds")
+    };
+    let sample_definition = || {
+        sample_only_definition(vec![sample_zone(
+            "main",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            127,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        )])
+    };
+
+    let tracked = sample_definition();
+    let tracked_root = render(&tracked, 60, None, 1024);
+    let tracked_octave = render(&tracked, 72, None, 1024);
+    assert_ne!(tracked_root.channels, tracked_octave.channels);
+
+    let mut fixed = sample_definition();
+    let GeneratorDefinition::Sample(sample) = &mut fixed.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].pitch_tracking = false;
+    let fixed_root = render(&fixed, 60, None, 1024);
+    let fixed_octave = render(&fixed, 72, None, 1024);
+    assert_eq!(fixed_root.channels, fixed_octave.channels);
+
+    let mut fixed_stretched = fixed.clone();
+    let GeneratorDefinition::Sample(sample) = &mut fixed_stretched.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].playback.time =
+        sonalloy_core::SampleTimeDefinition::FixedStretch { ratio: 1.0 };
+    let stretched_root = render(&fixed_stretched, 60, None, 2048);
+    let stretched_octave = render(&fixed_stretched, 72, None, 2048);
+    assert_eq!(stretched_root.channels, stretched_octave.channels);
+
+    let mut tuned = fixed.clone();
+    tuned.layers[0].tuning_cents = 100.0;
+    let tuned_output = render(&tuned, 60, None, 1024);
+    assert_ne!(fixed_root.channels, tuned_output.channels);
+
+    let mut gain_reference = tracked.clone();
+    gain_reference.voice_processors.clear();
+    let gain_reference = render(&gain_reference, 60, None, 1024);
+    let mut louder = tracked.clone();
+    louder.voice_processors.clear();
+    let GeneratorDefinition::Sample(sample) = &mut louder.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 6.0;
+    let louder_output = render(&louder, 60, None, 1024);
+    let gain = 10.0_f32.powf(6.0 / 20.0);
+    for (actual, original) in louder_output.channels[0]
+        .iter()
+        .zip(&gain_reference.channels[0])
+    {
+        assert_relative_eq!(*actual, *original * gain, epsilon = 2.0e-5);
+    }
+
+    let mut one_shot = sample_definition();
+    let GeneratorDefinition::Sample(sample) = &mut one_shot.layers[0].generator else {
+        unreachable!();
+    };
+    sample.note_off_behavior = sonalloy_core::SampleNoteOffBehavior::Ignore;
+    let held = render(&one_shot, 60, None, 4096);
+    let short_gate = render(&one_shot, 60, Some(64), 4096);
+    let release = render(&tracked, 60, Some(64), 4096);
+    assert_eq!(held.channels, short_gate.channels);
+    assert!(
+        short_gate.channels[0][1_024..2_000]
+            .iter()
+            .any(|value| value.abs() > 1.0e-5)
+    );
+    assert!(
+        release.channels[0][1_024..]
+            .iter()
+            .all(|value| value.abs() < 1.0e-8)
+    );
+}
+
+#[test]
 #[allow(clippy::too_many_lines)]
 fn round_robin_selection_is_definition_ordered_and_block_independent() {
     let definition = sample_only_definition(vec![
