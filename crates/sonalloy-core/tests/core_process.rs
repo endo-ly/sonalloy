@@ -1834,9 +1834,33 @@ fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
     };
     sample.zones[0].playback.time =
         sonalloy_core::SampleTimeDefinition::FixedStretch { ratio: 1.0 };
-    let stretched_root = render(&fixed_stretched, 60, None, 2048);
-    let stretched_octave = render(&fixed_stretched, 72, None, 2048);
+    let stretched_root = render(&fixed_stretched, 60, None, 32_000);
+    let stretched_octave = render(&fixed_stretched, 72, None, 32_000);
+    assert!(
+        stretched_root.channels[0]
+            .iter()
+            .any(|value| value.abs() > 1.0e-5)
+    );
     assert_eq!(stretched_root.channels, stretched_octave.channels);
+
+    let gain = 10.0_f32.powf(6.0 / 20.0);
+    let mut stretch_gain_reference = fixed_stretched.clone();
+    stretch_gain_reference.voice_processors.clear();
+    let stretch_gain_reference = render(&stretch_gain_reference, 60, None, 32_000);
+    let mut stretched_louder_definition = fixed_stretched.clone();
+    stretched_louder_definition.voice_processors.clear();
+    let GeneratorDefinition::Sample(sample) = &mut stretched_louder_definition.layers[0].generator
+    else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 6.0;
+    let stretched_louder = render(&stretched_louder_definition, 60, None, 32_000);
+    for (actual, original) in stretched_louder.channels[0]
+        .iter()
+        .zip(&stretch_gain_reference.channels[0])
+    {
+        assert_relative_eq!(*actual, *original * gain, epsilon = 2.0e-5);
+    }
 
     let mut tuned = fixed.clone();
     tuned.layers[0].tuning_cents = 100.0;
@@ -1853,7 +1877,6 @@ fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
     };
     sample.zones[0].gain_db = 6.0;
     let louder_output = render(&louder, 60, None, 1024);
-    let gain = 10.0_f32.powf(6.0 / 20.0);
     for (actual, original) in louder_output.channels[0]
         .iter()
         .zip(&gain_reference.channels[0])
