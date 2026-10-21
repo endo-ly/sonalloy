@@ -425,8 +425,6 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 }
 ```
 
-Sample Generatorでは補間方式、Note Off時の動作、任意の正規化を設定できます。
-
 | Field | 型・値 | 省略時 | 動作 |
 |---|---|---|---|
 | `interpolation` | `cubic` | `cubic` | Sample位置の補間方式 |
@@ -434,8 +432,6 @@ Sample Generatorでは補間方式、Note Off時の動作、任意の正規化�
 | `normalize` | 設定Object / `null` | 無効 | 再生範囲の音量を目標に合わせる |
 
 `note_off_behavior: "ignore"`は`trigger.event: "note_on"`で使い、すべてのZoneで`playback.loop: null`を指定します。ADSRは通常どおり作用します。Sampleの音量を最後まで保つには、`sustain_level: 1.0`を指定します。
-
-`normalize`は次のFieldを持ちます。
 
 | Field | 値 | 動作 |
 |---|---|---|
@@ -453,7 +449,7 @@ Sample Generatorでは補間方式、Note Off時の動作、任意の正規化�
 | `id` | 一意な文字列 | Zone識別子 |
 | `asset` | — | Mono / StereoのWAV |
 | `root_note` | 0〜127 | Zoneの基準音程。`pitch_tracking`の値によらず必須 |
-| `pitch_tracking` | Boolean | `true` | `true`は鍵盤に合わせて音程を変え、`false`は録音時の音程を保つ。Layerの`tuning_cents`はどちらでも適用 |
+| `pitch_tracking` | Boolean | `true` | `false`なら録音時の音程を保つ。Layerの`tuning_cents`は適用される |
 | `gain_db` | -60〜12 dB | 0 dB | Zoneごとの音量調整 |
 | `key_min` / `key_max` | 0〜127 | 発音するMIDI Note範囲 |
 | `velocity_min` / `velocity_max` | 1〜127 | 発音するVelocity範囲 |
