@@ -2561,6 +2561,48 @@ mod tests {
         }));
     }
 
+    #[test]
+    fn sample_one_shot_requires_note_on_and_unlooped_zones() {
+        let mut value = sample_definition(vec![sample_zone(
+            "hit",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: None,
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: 0.01,
+                    crossfade_seconds: 0.0,
+                }),
+                time: SampleTimeDefinition::Resample,
+            },
+        )]);
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
+        };
+        sample.note_off_behavior = SampleNoteOffBehavior::Ignore;
+        value.layers[0].trigger.event = LayerTriggerEvent::NoteOff;
+
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.note_off_behavior")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop")
+        }));
+    }
+
     fn operator_definition(
         mode: OperatorModulationMode,
         algorithm: OperatorAlgorithm,
