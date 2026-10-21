@@ -361,10 +361,18 @@ pub(crate) fn resolved_asset_path(base_dir: &Path, reference: &str) -> PathBuf {
 
 fn resolve_path(base_dir: &Path, reference: &str) -> PathBuf {
     let path = Path::new(reference);
-    if path.is_absolute() {
+    let resolved = if path.is_absolute() {
         path.to_path_buf()
     } else {
         base_dir.join(path)
+    };
+    #[cfg(windows)]
+    {
+        std::fs::canonicalize(&resolved).unwrap_or(resolved)
+    }
+    #[cfg(not(windows))]
+    {
+        resolved
     }
 }
 
@@ -569,6 +577,8 @@ mod tests {
         AssetError, PreparedAudio, PreparedAudioChannels, SampleMetadata, downmix, linear_resample,
         measure_audio_region, prepare_asset, resample,
     };
+    #[cfg(windows)]
+    use super::{load_audio, resolve_path};
     use crate::definition::{AssetReference, SampleNormalizationMeasure};
 
     fn write_pcm16_wav(path: &Path, channels: u16, sample_rate: u32, samples: &[i16]) {
@@ -855,5 +865,53 @@ mod tests {
         )
         .expect_err("wrong hash must fail");
         assert!(matches!(error, AssetError::HashMismatch { .. }));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn long_windows_sample_paths_load_from_relative_and_extended_forms() {
+        let directory = fixture_directory();
+        let canonical_root = std::fs::canonicalize(directory.path()).expect("temp path resolves");
+        let root_text = canonical_root.to_string_lossy();
+        let root_without_prefix = Path::new(
+            root_text
+                .strip_prefix(r"\\?\")
+                .expect("canonical Windows path has the extended prefix"),
+        )
+        .to_path_buf();
+        let mut relative = std::path::PathBuf::new();
+        for index in 0..7 {
+            relative.push(format!("segment-{index}-{}", "x".repeat(32)));
+        }
+        let filename = relative.join("long-sample.wav");
+        let extended_path = canonical_root.join(&filename);
+        std::fs::create_dir_all(extended_path.parent().expect("file parent exists"))
+            .expect("long path directories create");
+        write_pcm16_wav(&extended_path, 1, 48_000, &[16_384, -16_384, 8_192, -8_192]);
+        let unprefixed_path = root_without_prefix.join(&filename);
+        assert!(unprefixed_path.to_string_lossy().len() > 260);
+
+        let relative_audio = load_audio(
+            &AssetReference {
+                path: filename.to_string_lossy().into_owned(),
+                sha256: None,
+            },
+            &root_without_prefix,
+        )
+        .expect("long relative path loads");
+        let extended_audio = load_audio(
+            &AssetReference {
+                path: extended_path.to_string_lossy().into_owned(),
+                sha256: None,
+            },
+            Path::new("."),
+        )
+        .expect("extended path loads");
+        assert_eq!(relative_audio.samples, extended_audio.samples);
+        assert!(
+            resolve_path(Path::new("."), &extended_path.to_string_lossy())
+                .to_string_lossy()
+                .starts_with(r"\\?\")
+        );
     }
 }
