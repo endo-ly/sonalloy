@@ -1622,6 +1622,8 @@ pub(crate) mod tests {
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
                 interpolation: crate::definition::SampleInterpolation::Cubic,
+                note_off_behavior: crate::definition::SampleNoteOffBehavior::Release,
+                normalize: None,
                 zones: vec![crate::definition::SampleZoneDefinition {
                     id: "stretch".to_owned(),
                     asset: crate::definition::AssetReference {
@@ -1629,6 +1631,8 @@ pub(crate) mod tests {
                         sha256: None,
                     },
                     root_note: 60,
+                    pitch_tracking: true,
+                    gain_db: 0.0,
                     key_min: 0,
                     key_max: 127,
                     velocity_min: 1,
@@ -2787,6 +2791,8 @@ pub(crate) mod tests {
             velocity_min: 1,
             velocity_max: 127,
             round_robin_group: Some("hits".to_owned()),
+            pitch_tracking: true,
+            gain_db: 0.0,
             playback: crate::definition::SampleZonePlaybackDefinition {
                 region: crate::definition::SampleRegionDefinition {
                     start_seconds,
@@ -2801,6 +2807,8 @@ pub(crate) mod tests {
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
                 interpolation: crate::definition::SampleInterpolation::Cubic,
+                note_off_behavior: crate::definition::SampleNoteOffBehavior::Release,
+                normalize: None,
                 zones: vec![asset(0.0, 0.08), asset(0.08, 0.16)],
             });
         let mut runtime = runtime_with(&source);

@@ -1395,6 +1395,8 @@ fn sample_zone(
             sha256: Some(METAL_HIT_HASH.to_owned()),
         },
         root_note: 60,
+        pitch_tracking: true,
+        gain_db: 0.0,
         key_min,
         key_max,
         velocity_min,

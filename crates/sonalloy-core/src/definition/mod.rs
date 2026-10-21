@@ -353,7 +353,7 @@ impl InstrumentDefinition {
                     validate_formant(&mut diagnostics, &path, formant);
                 }
                 GeneratorDefinition::Sample(sample) => {
-                    validate_sample(&mut diagnostics, &path, sample);
+                    validate_sample(&mut diagnostics, &path, sample, layer.trigger.event);
                 }
                 GeneratorDefinition::Granular(granular) => {
                     validate_granular(&mut diagnostics, &path, granular);
