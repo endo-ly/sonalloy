@@ -680,6 +680,10 @@ impl SampleRuntime {
         self.root_note
     }
 
+    pub(crate) fn pitch_tracking(&self) -> bool {
+        self.pitch_tracking
+    }
+
     pub(crate) fn pitch_note_number(&self, note_number: u8) -> u8 {
         if self.pitch_tracking {
             note_number

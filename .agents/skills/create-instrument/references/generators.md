@@ -449,7 +449,7 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 | `id` | 一意な文字列 | Zone識別子 |
 | `asset` | — | Mono / StereoのWAV |
 | `root_note` | 0〜127 | Zoneの基準音程。`pitch_tracking`の値によらず必須 |
-| `pitch_tracking` | Boolean | `true` | `false`なら録音時の音程を保つ。Layerの`tuning_cents`は適用される |
+| `pitch_tracking` | Boolean | `true` | `false`なら録音時の音程を保ち、鍵盤による音程変化とポルタメントを受けない。Layerの`tuning_cents`と変調は適用される |
 | `gain_db` | -60〜12 dB | 0 dB | Zoneごとの音量調整 |
 | `key_min` / `key_max` | 0〜127 | 発音するMIDI Note範囲 |
 | `velocity_min` / `velocity_max` | 1〜127 | 発音するVelocity範囲 |

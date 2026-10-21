@@ -8,10 +8,10 @@ use sonalloy_core::{
     LfoDefinition, LfoWaveform, MAX_TRACE_OBSERVATIONS, MacroDefinition, ModulationCurve,
     ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
     ModulationSourceDefinition, MusicalTimeMap, NoiseColor, NoiseDefinition, OscillatorDefinition,
-    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RandomDefinition, RenderError, RenderRequest, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, ScheduledEvent, TraceRequest, compile_instrument,
-    render_instrument, render_instrument_with_trace,
+    OscillatorWaveform, PerformanceDefinition, PortamentoDefinition, ProcessBlock, ProcessContext,
+    ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition,
+    RenderError, RenderRequest, SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent,
+    TraceRequest, compile_instrument, render_instrument, render_instrument_with_trace,
 };
 
 fn definition() -> InstrumentDefinition {
@@ -1913,6 +1913,122 @@ fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
     let stretched_held = render(&stretched_one_shot, 60, None, 32_000);
     let stretched_short_gate = render(&stretched_one_shot, 60, Some(64), 32_000);
     assert_eq!(stretched_held.channels, stretched_short_gate.channels);
+}
+
+fn render_monophonic_sample(
+    pitch_tracking: bool,
+    portamento: Option<PortamentoDefinition>,
+    tuning_cents: f32,
+    modulation_depth: Option<f32>,
+) -> sonalloy_core::RenderedAudio {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let mut definition = sample_only_definition(vec![sample_zone(
+        "main",
+        "../../testdata/assets/metal-hit.wav",
+        0,
+        127,
+        1,
+        127,
+        None,
+        0.0,
+        0.08,
+    )]);
+    definition.performance = PerformanceDefinition::Monophonic {
+        legato: true,
+        portamento,
+    };
+    definition.layers[0].tuning_cents = tuning_cents;
+    let GeneratorDefinition::Sample(sample) = &mut definition.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].pitch_tracking = pitch_tracking;
+    definition.modulation = modulation_depth.map(|depth| ModulationDefinition {
+        sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
+            id: "tuning_lfo".to_owned(),
+            waveform: LfoWaveform::Sine,
+            rate: sonalloy_core::ModulationRateDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationRateUnit::PerSecond,
+            },
+            phase: 0.0,
+        })],
+        routes: vec![ModulationRouteDefinition {
+            source: "tuning_lfo".to_owned(),
+            target: format!("layer.{}.tuning", definition.layers[0].id),
+            depth: ModulationDepthDefinition {
+                value: depth,
+                unit: sonalloy_core::ModulationUnit::Cents,
+            },
+            curve: ModulationCurve::Linear,
+            depth_control: None,
+        }],
+    });
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+        },
+    );
+    let instrument = result
+        .instrument
+        .unwrap_or_else(|| panic!("compile diagnostics: {:?}", result.diagnostics));
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 3_000,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 1_024,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 72,
+                    velocity: 100,
+                },
+            },
+        ],
+    )
+    .expect("monophonic sample render succeeds")
+}
+
+#[test]
+fn fixed_sample_ignores_monophonic_portamento_but_keeps_tuning_modulation() {
+    let glide = Some(PortamentoDefinition { time_seconds: 0.1 });
+    let fixed_with_portamento = render_monophonic_sample(false, glide, 35.0, Some(40.0));
+    let fixed_without_portamento = render_monophonic_sample(false, None, 35.0, Some(40.0));
+    assert_eq!(
+        fixed_with_portamento.channels,
+        fixed_without_portamento.channels
+    );
+    let fixed_without_tuning = render_monophonic_sample(false, None, 0.0, Some(40.0));
+    assert_ne!(
+        fixed_without_portamento.channels,
+        fixed_without_tuning.channels
+    );
+    let fixed_without_modulation = render_monophonic_sample(false, None, 35.0, None);
+    assert_ne!(
+        fixed_without_portamento.channels,
+        fixed_without_modulation.channels
+    );
+
+    let tracked_with_portamento = render_monophonic_sample(true, glide, 35.0, Some(40.0));
+    let tracked_without_portamento = render_monophonic_sample(true, None, 35.0, Some(40.0));
+    assert_ne!(
+        tracked_with_portamento.channels,
+        tracked_without_portamento.channels
+    );
 }
 
 #[test]

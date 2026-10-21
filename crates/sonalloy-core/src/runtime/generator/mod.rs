@@ -238,6 +238,8 @@ impl GeneratorRuntime {
         note_number: u8,
         tuning_start: f32,
         tuning_end: f32,
+        pitch_glide_start: f32,
+        pitch_glide_end: f32,
         sample_rate: f64,
         tempo_bpm: f64,
         targets: &LayerGeneratorTargetSpan,
@@ -250,6 +252,13 @@ impl GeneratorRuntime {
                 kind: crate::process::ProcessorFailureKind::InvalidState,
             });
         }
+        let (tuning_start, tuning_end) = match self {
+            Self::Sample { sample } if !sample.pitch_tracking() => (tuning_start, tuning_end),
+            _ => (
+                tuning_start + pitch_glide_start,
+                tuning_end + pitch_glide_end,
+            ),
+        };
         match self {
             Self::Oscillator(oscillator) => {
                 oscillator.render(
