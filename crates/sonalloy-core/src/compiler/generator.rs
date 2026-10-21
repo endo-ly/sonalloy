@@ -13,16 +13,18 @@ use super::{
     prepare_cached_asset, source_id_hash,
 };
 use crate::asset::{
-    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, resolved_asset_path,
+    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, measure_audio_region,
+    resolved_asset_path,
 };
 use crate::definition::{
     AdditiveDefinition, AssetReference, FormantDefinition, GeneratorDefinition, GranularDefinition,
     ModalDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
     OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PhysicalExciterDefinition,
-    PhysicalStringDefinition, SampleNormalizationDefinition, SampleNoteOffBehavior,
-    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
-    UnisonDefinition, WaveSequenceDefinition, WaveSequenceDirection,
-    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
+    PhysicalStringDefinition, SampleNormalizationDefinition, SampleNormalizationMeasure,
+    SampleNormalizationScope, SampleNoteOffBehavior, SamplePlaybackDirection, SampleTimeDefinition,
+    SampleZoneDefinition, SpectralDefinition, UnisonDefinition, WaveSequenceDefinition,
+    WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepPlayback,
+    WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::generator::{
@@ -1956,6 +1958,7 @@ fn compile_sample(
         }
         zones.push(compiled);
     }
+    compile_sample_normalization(sample, layer_index, &mut zones, diagnostics);
 
     let mut group_indices = HashMap::<String, usize>::new();
     let mut group_ids = Vec::new();
@@ -2019,6 +2022,137 @@ fn compile_sample(
         groups,
         stretch_latency,
     }
+}
+
+fn compile_sample_normalization(
+    sample: &crate::definition::SampleDefinition,
+    layer_index: usize,
+    zones: &mut [CompiledSampleZone],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(normalization) = sample.normalize.as_ref() else {
+        return;
+    };
+    let sample_path = format!("layers[{layer_index}].generator.sample");
+    let normalization_path = format!("{sample_path}.normalize");
+    match normalization.scope {
+        SampleNormalizationScope::Zone => {
+            for (index, zone) in zones.iter_mut().enumerate() {
+                let Some(source) = zone.source.as_deref() else {
+                    continue;
+                };
+                let zone_path = format!("{sample_path}.zones[{index}]");
+                let Some(normalize_gain_db) = normalization_gain_db(
+                    source,
+                    zone.playback,
+                    normalization.measure,
+                    normalization.target_db,
+                ) else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::CompileError,
+                            "sample normalization requires a finite, non-silent playback region",
+                        )
+                        .with_path(format!("{zone_path}.playback.region")),
+                    );
+                    continue;
+                };
+                apply_sample_normalization(
+                    zone,
+                    normalize_gain_db,
+                    &normalization_path,
+                    diagnostics,
+                );
+            }
+        }
+        SampleNormalizationScope::Layer => {
+            let reference_zone = normalization
+                .reference_zone
+                .as_deref()
+                .and_then(|id| sample.zones.iter().position(|zone| zone.id == id));
+            let Some(reference_zone) = reference_zone else {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::CompileError,
+                        "sample normalization reference zone could not be resolved",
+                    )
+                    .with_path(format!("{normalization_path}.reference_zone")),
+                );
+                return;
+            };
+            let reference = &zones[reference_zone];
+            let Some(source) = reference.source.as_deref() else {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::CompileError,
+                        "sample normalization reference zone has no prepared audio",
+                    )
+                    .with_path(format!("{normalization_path}.reference_zone")),
+                );
+                return;
+            };
+            let Some(normalize_gain_db) = normalization_gain_db(
+                source,
+                reference.playback,
+                normalization.measure,
+                normalization.target_db,
+            ) else {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::CompileError,
+                        "sample normalization reference region must be finite and non-silent",
+                    )
+                    .with_path(format!("{normalization_path}.reference_zone")),
+                );
+                return;
+            };
+            for zone in zones {
+                apply_sample_normalization(
+                    zone,
+                    normalize_gain_db,
+                    &normalization_path,
+                    diagnostics,
+                );
+            }
+        }
+    }
+}
+
+fn normalization_gain_db(
+    source: &PreparedAudio,
+    playback: CompiledSamplePlayback,
+    measure: SampleNormalizationMeasure,
+    target_db: f32,
+) -> Option<f32> {
+    let measured = measure_audio_region(source, playback.start_frame, playback.end_frame, measure)?;
+    #[allow(clippy::cast_possible_truncation)]
+    let measured_db = (20.0 * measured.log10()) as f32;
+    let gain_db = target_db - measured_db;
+    let linear = db_to_linear(gain_db);
+    (gain_db.is_finite() && linear.is_finite() && linear > 0.0).then_some(gain_db)
+}
+
+fn apply_sample_normalization(
+    zone: &mut CompiledSampleZone,
+    normalize_gain_db: f32,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let effective_gain_db = normalize_gain_db + zone.gain_db;
+    let gain_linear = db_to_linear(effective_gain_db);
+    if !effective_gain_db.is_finite() || !gain_linear.is_finite() || gain_linear <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample normalization produces an invalid effective gain",
+            )
+            .with_path(path),
+        );
+        return;
+    }
+    zone.normalize_gain_db = normalize_gain_db;
+    zone.effective_gain_db = effective_gain_db;
+    zone.gain_linear = gain_linear;
 }
 
 fn compile_stretch_latency(

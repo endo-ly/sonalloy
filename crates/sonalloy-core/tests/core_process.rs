@@ -1903,6 +1903,185 @@ fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
             .iter()
             .all(|value| value.abs() < 1.0e-8)
     );
+
+    let mut stretched_one_shot = fixed_stretched;
+    let GeneratorDefinition::Sample(sample) = &mut stretched_one_shot.layers[0].generator else {
+        unreachable!();
+    };
+    sample.note_off_behavior = sonalloy_core::SampleNoteOffBehavior::Ignore;
+    let stretched_held = render(&stretched_one_shot, 60, None, 32_000);
+    let stretched_short_gate = render(&stretched_one_shot, 60, Some(64), 32_000);
+    assert_eq!(stretched_held.channels, stretched_short_gate.channels);
+}
+
+#[test]
+fn sample_normalization_uses_each_zone_or_one_layer_reference() {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let mut source = sample_only_definition(vec![
+        sample_zone(
+            "low",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            60,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "high",
+            "../../testdata/assets/metal-hit.wav",
+            61,
+            127,
+            1,
+            127,
+            None,
+            0.08,
+            0.16,
+        ),
+    ]);
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 2.0;
+    sample.zones[1].gain_db = -3.0;
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Zone,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: None,
+    });
+    let compile = |definition: &InstrumentDefinition| {
+        compile_instrument(
+            definition,
+            &CompileContext {
+                definition_base_dir: base_dir.clone(),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+            },
+        )
+    };
+    let zone_compiled = compile(&source)
+        .instrument
+        .expect("zone normalization compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(zone_sample) =
+        &zone_compiled.layers[0].generator
+    else {
+        unreachable!();
+    };
+    for zone in &zone_sample.zones {
+        let prepared = zone.source.as_ref().expect("sample zone is prepared");
+        let peak = match &prepared.channels {
+            sonalloy_core::PreparedAudioChannels::Mono { samples } => samples
+                [zone.playback.start_frame..zone.playback.end_frame]
+                .iter()
+                .map(|value| value.abs())
+                .fold(0.0_f32, f32::max),
+            sonalloy_core::PreparedAudioChannels::Stereo { left, right } => left
+                [zone.playback.start_frame..zone.playback.end_frame]
+                .iter()
+                .chain(&right[zone.playback.start_frame..zone.playback.end_frame])
+                .map(|value| value.abs())
+                .fold(0.0_f32, f32::max),
+        };
+        let measured_db = 20.0 * peak.log10();
+        assert_relative_eq!(zone.normalize_gain_db + measured_db, -6.0, epsilon = 1.0e-4);
+        assert_relative_eq!(
+            zone.effective_gain_db,
+            zone.normalize_gain_db + zone.gain_db,
+            epsilon = 1.0e-6
+        );
+    }
+    assert_eq!(source.layers[0].gain_db, 0.0);
+
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Layer,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: Some("low".to_owned()),
+    });
+    let layer_compiled = compile(&source)
+        .instrument
+        .expect("layer normalization compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(layer_sample) =
+        &layer_compiled.layers[0].generator
+    else {
+        unreachable!();
+    };
+    assert_eq!(
+        layer_sample.zones[0].normalize_gain_db,
+        layer_sample.zones[1].normalize_gain_db
+    );
+    assert_relative_eq!(
+        layer_sample.zones[0].normalize_gain_db,
+        zone_sample.zones[0].normalize_gain_db,
+        epsilon = 1.0e-6
+    );
+}
+
+#[test]
+fn sample_normalization_rejects_silence_but_unconfigured_samples_still_compile() {
+    let directory = tempfile::tempdir().expect("fixture directory creates");
+    let path = directory.path().join("silent.wav");
+    let mut bytes = Vec::with_capacity(52);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&44_u32.to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16_u32.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&48_000_u32.to_le_bytes());
+    bytes.extend_from_slice(&96_000_u32.to_le_bytes());
+    bytes.extend_from_slice(&2_u16.to_le_bytes());
+    bytes.extend_from_slice(&16_u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&8_u32.to_le_bytes());
+    bytes.extend_from_slice(&[0; 8]);
+    std::fs::write(&path, bytes).expect("silent WAV writes");
+
+    let mut source = sample_only_definition(vec![sample_zone(
+        "silent",
+        "silent.wav",
+        0,
+        127,
+        1,
+        127,
+        None,
+        0.0,
+        0.08,
+    )]);
+    {
+        let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+            unreachable!();
+        };
+        sample.zones[0].asset.sha256 = None;
+        sample.zones[0].playback.region.end_seconds = None;
+    }
+    let context = CompileContext {
+        definition_base_dir: directory.path().to_path_buf(),
+        process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"),
+    };
+    assert!(compile_instrument(&source, &context).instrument.is_some());
+
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Zone,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: None,
+    });
+    let result = compile_instrument(&source, &context);
+    assert!(result.instrument.is_none());
+    assert!(result.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == DiagnosticCode::CompileError
+            && diagnostic.path.as_deref()
+                == Some("layers[0].generator.sample.zones[0].playback.region")
+    }));
 }
 
 #[test]
