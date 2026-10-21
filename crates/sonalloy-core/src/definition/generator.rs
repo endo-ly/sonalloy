@@ -311,6 +311,7 @@ pub enum SampleNoteOffBehavior {
     Ignore,
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
 fn is_sample_note_off_release(value: &SampleNoteOffBehavior) -> bool {
     *value == SampleNoteOffBehavior::Release
 }
@@ -665,10 +666,12 @@ const fn sample_pitch_tracking_default() -> bool {
     true
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
 fn is_true(value: &bool) -> bool {
     *value
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
 fn is_zero(value: &f32) -> bool {
     *value == 0.0
 }
@@ -2538,9 +2541,8 @@ mod tests {
             value
         );
 
-        let sample = match &mut value.layers[0].generator {
-            GeneratorDefinition::Sample(sample) => sample,
-            _ => unreachable!(),
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
         };
         sample.normalize = Some(SampleNormalizationDefinition {
             scope: SampleNormalizationScope::Layer,

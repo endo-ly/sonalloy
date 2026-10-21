@@ -1759,6 +1759,7 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
     let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let render = |source: &InstrumentDefinition,
@@ -1915,6 +1916,7 @@ fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sample_normalization_uses_each_zone_or_one_layer_reference() {
     let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let mut source = sample_only_definition(vec![
