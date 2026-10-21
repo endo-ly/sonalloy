@@ -67,7 +67,7 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 
 `instrument inspect --json`はCompile後に実行される構成を返します。ReportにはPerformance、Layer、Generator、Parameter、Modulation、Macro、Vector、Processor、External Audio、Warningが含まれます。Generator構造Fieldは種類ごとに異なります。
 
-Sample Generatorは`note_off_behavior`と`normalize`の設定を返します。各Zoneには`pitch_tracking`とDefinitionに記載した`gain_db`、Compile時に求めた`normalize_gain_db`、適用後の`effective_gain_db`が含まれます。
+Sample Generatorでは`note_off_behavior`と`normalize`、各Zoneでは`pitch_tracking`、`gain_db`、`normalize_gain_db`、`effective_gain_db`を確認できます。
 
 `parameters[]`はParameter ID、Owner、Native Unit、範囲、既定値、Scale、Smoothing、Modulation Unit、最大Depthを示します。`routes[].effect`はSource Endpointが作る加算量またはLog2倍率を、`sources[]`はScope、Rate、MSEG / Step / Randomの構造を示します。
 

@@ -425,26 +425,26 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 }
 ```
 
-Sample Generatorの再生全体は`interpolation`、`note_off_behavior`、`normalize`で設定します。省略したFieldは既定値で動作するため、音源の要件に合う機能だけを明示します。
+Sample Generatorでは補間方式、Note Off時の動作、任意の正規化を設定できます。
 
 | Field | 型・値 | 省略時 | 動作 |
 |---|---|---|---|
 | `interpolation` | `cubic` | `cubic` | Sample位置の補間方式 |
 | `note_off_behavior` | `release` / `ignore` | `release` | `release`はNote OffでLayerのReleaseへ移り、`ignore`はSample終端まで再生 |
-| `normalize` | 設定Object / `null` | 無効 | Compile時に再生Regionの音量を測定し、目標音量へ合わせる |
+| `normalize` | 設定Object / `null` | 無効 | 再生範囲の音量を目標に合わせる |
 
-`note_off_behavior: "ignore"`は`trigger.event: "note_on"`のLayerで使い、全Zoneの`playback.loop`を`null`にします。ADSRのAttack、Decay、Sustainは引き続き作用します。Sampleを元の音量で終端まで鳴らす場合は、`sustain_level: 1.0`を設定します。サンプル終端でLayerが終了し、別LayerのNote Off処理には影響しません。
+`note_off_behavior: "ignore"`は`trigger.event: "note_on"`で使い、すべてのZoneで`playback.loop: null`を指定します。ADSRは通常どおり作用します。Sampleの音量を最後まで保つには、`sustain_level: 1.0`を指定します。
 
 `normalize`は次のFieldを持ちます。
 
 | Field | 値 | 動作 |
 |---|---|---|
-| `scope` | `zone` / `layer` | `zone`は各Zoneを個別に測定し、`layer`は基準Zoneの結果を全Zoneに適用 |
-| `measure` | `peak` / `rms_active` | `peak`は最大振幅、`rms_active`は無音に近いフレームを除いたRMS |
+| `scope` | `zone` / `layer` | `zone`は各Zone、`layer`は基準Zoneに合わせて全Zoneを調整 |
+| `measure` | `peak` / `rms_active` | `peak`は最大振幅、`rms_active`は無音部分を除いたRMS |
 | `target_db` | -60〜0 dBFS | 測定音量の目標 |
 | `reference_zone` | Zone ID / `null` | `scope: "layer"`では既存ZoneのIDを指定。`zone`では指定しない |
 
-測定にはSample Rate変換後の再生Regionを使います。`rms_active`ではRegion内の最大振幅より40 dB以上小さいフレームを除きます。無音のRegionはCompile Errorです。正規化ゲインはZoneの`gain_db`と合成され、Layerの`gain_db`は変更しません。
+`zone`では各Zone、`layer`では`reference_zone`の再生範囲に音が必要です。正規化ゲインはZoneの`gain_db`に加算し、Layerの`gain_db`には作用しません。
 
 **Zone**
 
@@ -454,7 +454,7 @@ Sample Generatorの再生全体は`interpolation`、`note_off_behavior`、`norma
 | `asset` | — | Mono / StereoのWAV |
 | `root_note` | 0〜127 | Zoneの基準音程。`pitch_tracking`の値によらず必須 |
 | `pitch_tracking` | Boolean | `true` | `true`は鍵盤に合わせて音程を変え、`false`は録音時の音程を保つ。Layerの`tuning_cents`はどちらでも適用 |
-| `gain_db` | -60〜12 dB | 0 dB | Zoneごとの手動音量調整。正規化ゲインの後に合成 |
+| `gain_db` | -60〜12 dB | 0 dB | Zoneごとの音量調整 |
 | `key_min` / `key_max` | 0〜127 | 発音するMIDI Note範囲 |
 | `velocity_min` / `velocity_max` | 1〜127 | 発音するVelocity範囲 |
 | `round_robin_group` | — / `null` | 同一条件のZoneをDefinition順に選ぶGroup |

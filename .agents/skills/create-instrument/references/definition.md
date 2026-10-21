@@ -242,9 +242,7 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 
 **Assetの準備**
 
-Sample、Wavetable、Spectral、Granular、Wave SequenceとConvolutionは、Definitionから参照したWAVをCompile時に読み込みます。Assetとして使うWAVはPCM 16-bit / 24-bitまたはFloat 32-bitで、MonoまたはStereoにします。相対PathはDefinitionファイルのDirectoryを基準とし、絶対Pathも使えます。`sha256`は任意で、指定した場合は元ファイルのSHA-256を照合します。同じAssetを複数のZoneやGeneratorが参照する場合、準備済みの音声データを共有します。
-
-Windowsでは、読み込み可能なAssetを絶対Pathへ解決してからHash照合とDecodeを行います。長いPath、UNC Path、拡張形式のPathも同じAsset読み込み経路で扱い、InspectではDefinitionに記載したPathを表示します。
+Sample、Wavetable、Spectral、Granular、Wave SequenceとConvolutionは、Definitionから参照したWAVをCompile時に読み込みます。Assetとして使うWAVはPCM 16-bit / 24-bitまたはFloat 32-bitで、MonoまたはStereoにします。相対PathはDefinitionファイルのDirectoryを基準とし、絶対Pathも使えます。`sha256`は任意で、指定した場合は元ファイルのSHA-256を照合します。同じAssetを複数のZoneやGeneratorが参照する場合、準備済みの音声データを共有します。Windowsでは長いファイルパスを持つAssetも利用できます。
 
 有効なLayerまたはProcessorが参照するAssetの欠落・Hash不一致・Decodeや事前解析の失敗はCompile Errorです。`enabled: false`のLayerはAsset準備と発音の対象外です。Sample RateとChannelの変換はGeneratorごとに異なります。
 
