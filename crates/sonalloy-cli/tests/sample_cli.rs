@@ -780,3 +780,139 @@ fn valid_analysis_supersedes_conflicts_between_obsolete_caches() {
         current.canonicalize().unwrap()
     );
 }
+#[test]
+#[allow(clippy::too_many_lines)]
+fn search_distinguishes_unavailable_analysis_from_measured_null_and_combines_conditions() {
+    let dir = tempdir().unwrap();
+    for name in ["a-unanalyzed.wav", "e-stale.wav", "f-tone.wav"] {
+        wav(&dir.path().join(name), 1, 256, 48000, false);
+    }
+    wav(&dir.path().join("b-silence.wav"), 1, 256, 48000, true);
+    let short = dir.path().join("c-short.wav");
+    wav(&short, 1, 1, 48000, true);
+    let mut bytes = std::fs::read(&short).unwrap();
+    let end = bytes.len();
+    bytes[end - 4..].copy_from_slice(&0.25_f32.to_le_bytes());
+    std::fs::write(&short, bytes).unwrap();
+    std::fs::write(dir.path().join("d-failed.wav"), b"invalid WAV").unwrap();
+    let output = dir.path().join("index.json");
+    cli(
+        &[
+            "sample",
+            "index",
+            text(dir.path()),
+            "--output",
+            text(&output),
+            "--analyze",
+            "--json",
+        ],
+        1,
+    );
+    let mut stored = read(&output);
+    let records = stored["files"].as_array_mut().unwrap();
+    records[0]["analysis"] = Value::Null;
+    records[0]["analysis_revision"] = Value::Null;
+    // Missing file metadata can coexist with a measured, undefined acoustic value.
+    records[1]["audio"]["duration_seconds"] = Value::Null;
+    records[4]["analysis_revision"] = json!(0);
+    let boundary = |value: &Value| {
+        f64::from(serde_json::from_value::<f32>(value.clone()).unwrap()).to_string()
+    };
+    let short_peak = boundary(&records[2]["analysis"]["level"]["peak_dbfs"]);
+    let short_rms = boundary(&records[2]["analysis"]["level"]["rms_dbfs"]);
+    let tone_centroid = boundary(&records[5]["analysis"]["spectrum"]["spectral_centroid_hz"]);
+    write(&output, &stored);
+    let cases: &[(&[&str], u64, u64)] = &[
+        (&[], 6, 0),
+        (&["--min-peak-dbfs", "-30"], 2, 3),
+        (&["--min-rms-dbfs", "-30"], 2, 3),
+        (&["--min-centroid-hz", "0"], 1, 3),
+        (&["--query", "silence", "--min-peak-dbfs", "-30"], 0, 0),
+        (&["--query", "silence", "--max-peak-dbfs", "0"], 0, 0),
+        (&["--query", "short", "--max-centroid-hz", "1000"], 0, 0),
+        (
+            &[
+                "--query",
+                "silence",
+                "--min-duration",
+                "1",
+                "--min-peak-dbfs",
+                "-30",
+            ],
+            0,
+            0,
+        ),
+        (
+            &[
+                "--query",
+                "unanalyzed",
+                "--max-duration",
+                "0",
+                "--min-peak-dbfs",
+                "-30",
+            ],
+            0,
+            0,
+        ),
+        (&["--query", "failed", "--min-peak-dbfs", "-30"], 0, 1),
+        (&["--query", "stale", "--min-rms-dbfs", "-30"], 0, 1),
+        (
+            &[
+                "--query",
+                "short",
+                "--min-peak-dbfs",
+                &short_peak,
+                "--max-peak-dbfs",
+                &short_peak,
+                "--min-rms-dbfs",
+                &short_rms,
+                "--max-rms-dbfs",
+                &short_rms,
+            ],
+            1,
+            0,
+        ),
+        (
+            &[
+                "--query",
+                "tone",
+                "--min-centroid-hz",
+                &tone_centroid,
+                "--max-centroid-hz",
+                &tone_centroid,
+            ],
+            1,
+            0,
+        ),
+    ];
+
+    for (filters, matches, unevaluated) in cases {
+        let mut args = vec!["sample", "search", text(&output), "--json"];
+        args.extend_from_slice(filters);
+        let report = cli(&args, 0);
+
+        assert_eq!(report["total_matches"], *matches, "{filters:?}");
+        assert_eq!(report["unevaluated"], *unevaluated, "{filters:?}");
+        assert_eq!(report["evaluated"], 6 - unevaluated, "{filters:?}");
+        assert_eq!(report["complete"], *unevaluated == 0, "{filters:?}");
+    }
+    let page = cli(
+        &[
+            "sample",
+            "search",
+            text(&output),
+            "--min-peak-dbfs",
+            "-30",
+            "--offset",
+            "1",
+            "--limit",
+            "1",
+            "--json",
+        ],
+        0,
+    );
+    assert_eq!(page["total_matches"], 2);
+    assert_eq!(page["returned"], 1);
+    assert_eq!(page["results"][0]["relative_path"], "f-tone.wav");
+    assert_eq!(page["unevaluated"], 3);
+}

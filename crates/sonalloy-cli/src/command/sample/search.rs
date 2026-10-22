@@ -235,20 +235,21 @@ fn matches(record: &Record, args: &SearchArgs, query: Option<&str>) -> Option<bo
     let analysis = (record.analysis_status() == "analyzed")
         .then_some(record.analysis.as_ref())
         .flatten();
-    conditions.push(range(
-        analysis.and_then(|a| a.level.peak_dbfs).map(f64::from),
+    conditions.push(acoustic_range(
+        analysis,
+        |a| a.level.peak_dbfs,
         args.min_peak_dbfs,
         args.max_peak_dbfs,
     ));
-    conditions.push(range(
-        analysis.and_then(|a| a.level.rms_dbfs).map(f64::from),
+    conditions.push(acoustic_range(
+        analysis,
+        |a| a.level.rms_dbfs,
         args.min_rms_dbfs,
         args.max_rms_dbfs,
     ));
-    conditions.push(range(
-        analysis
-            .and_then(|a| a.spectrum.spectral_centroid_hz)
-            .map(f64::from),
+    conditions.push(acoustic_range(
+        analysis,
+        |a| a.spectrum.spectral_centroid_hz,
         args.min_centroid_hz,
         args.max_centroid_hz,
     ));
@@ -265,5 +266,22 @@ fn range(value: Option<f64>, min: Option<f64>, max: Option<f64>) -> Option<bool>
     if min.is_none() && max.is_none() {
         return Some(true);
     }
-    value.map(|value| min.is_none_or(|min| value >= min) && max.is_none_or(|max| value <= max))
+    value.map(|value| within(value, min, max))
+}
+
+fn acoustic_range(
+    analysis: Option<&AudioAnalysis>,
+    metric: impl FnOnce(&AudioAnalysis) -> Option<f32>,
+    min: Option<f64>,
+    max: Option<f64>,
+) -> Option<bool> {
+    if min.is_none() && max.is_none() {
+        return Some(true);
+    }
+    analysis
+        .map(|analysis| metric(analysis).is_some_and(|value| within(f64::from(value), min, max)))
+}
+
+fn within(value: f64, min: Option<f64>, max: Option<f64>) -> bool {
+    min.is_none_or(|min| value >= min) && max.is_none_or(|max| value <= max)
 }

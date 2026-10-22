@@ -97,7 +97,7 @@ JSON Reportは`index`、`source_root`、`total_files`、`added`、`updated`、`u
 | `unevaluated`、`complete` | 判定できない件数と、全レコードを判定できたか |
 | `results[]` | 絶対`path`、`source_index`、`relative_path`、`audio`、`analysis_status`、`analysis`、`diagnostics` |
 
-`analysis_status`は`analyzed`、`unanalyzed`、`stale`（解析方式が古い）、`failed`です。名前検索はどの状態も対象とします。音響条件に必要な値がない場合は未評価ですが、ほかの条件だけで不一致が確定すれば評価済みです。無音のdBFSや、短いWAVで測定できないCentroidも未評価になります。検索結果は最後に索引化した状態を示すため、元ファイルを変更した場合は索引を更新してください。
+`analysis_status`は`analyzed`、`unanalyzed`、`stale`（解析方式が古い）、`failed`です。名前検索はどの状態も対象とします。音響解析が未実施・失敗・無効キャッシュの場合、必要な音響条件は評価不能です。解析済みで値が`null`の場合は、その数値条件に不一致となり、0への変換は行いません。各条件は一致・不一致・評価不能として評価し、1つでも不一致なら全体を不一致、すべて一致なら一致、それ以外は評価不能とします。`unevaluated`は全体の判定が評価不能の件数で、`complete`は`unevaluated == 0`です。検索結果は最後に索引化した状態を示すため、元ファイルを変更した場合は索引を更新してください。
 
 ### 単一WAVからの音源定義生成
 
