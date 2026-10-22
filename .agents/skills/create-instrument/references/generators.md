@@ -427,7 +427,7 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 
 | Field | 型・値 | 省略時 | 動作 |
 |---|---|---|---|
-| `interpolation` | `cubic` | `cubic` | Sample位置の補間方式 |
+| `interpolation` | `cubic` | 省略不可 | Sample位置の補間方式 |
 | `note_off_behavior` | `release` / `ignore` | `release` | `release`はNote OffでLayerのReleaseへ移り、`ignore`はSample終端まで再生 |
 | `normalize` | 設定Object / `null` | 無効 | 再生範囲の音量を目標に合わせる |
 
