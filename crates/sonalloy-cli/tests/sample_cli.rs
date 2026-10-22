@@ -604,15 +604,30 @@ fn sample_instrument_init_validates_compiles_renders_and_protects_destination() 
 }
 #[cfg(unix)]
 #[test]
-fn traversal_skips_directory_links_and_preserves_index_on_unrepresentable_paths() {
-    use std::os::unix::{ffi::OsStringExt, fs::symlink};
+fn traversal_skips_directory_links() {
+    use std::os::unix::fs::symlink;
     let dir = tempdir().unwrap();
     let root = dir.path().join("samples");
     std::fs::create_dir(&root).unwrap();
     wav(&root.join("sample.wav"), 1, 16, 48000, false);
     symlink(&root, root.join("loop")).unwrap();
     let output = dir.path().join("index.json");
-    assert_eq!(index(&root, &output, false)["total_files"], 1);
+
+    let report = index(&root, &output, false);
+
+    assert_eq!(report["total_files"], 1);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn traversal_preserves_index_on_unrepresentable_paths() {
+    use std::os::unix::ffi::OsStringExt;
+    let dir = tempdir().unwrap();
+    let root = dir.path().join("samples");
+    std::fs::create_dir(&root).unwrap();
+    wav(&root.join("sample.wav"), 1, 16, 48000, false);
+    let output = dir.path().join("index.json");
+    index(&root, &output, false);
     let saved = std::fs::read(&output).unwrap();
     let invalid_name = std::ffi::OsString::from_vec(b"invalid-\xff.wav".to_vec());
     wav(&root.join(invalid_name), 1, 16, 48000, false);
