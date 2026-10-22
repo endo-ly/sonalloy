@@ -384,6 +384,33 @@ fn search_merges_indexes_before_paging_and_rejects_ambiguous_analysis() {
             .unwrap()
             .contains("conflicting")
     );
+    let unrelated = cli(
+        &[
+            "sample",
+            "search",
+            text(&old),
+            text(&new),
+            "--query",
+            "b.wav",
+            "--json",
+        ],
+        0,
+    );
+    assert_eq!(unrelated["total_matches"], 1);
+    let excluded = cli(
+        &[
+            "sample",
+            "search",
+            text(&old),
+            text(&new),
+            "--min-peak-dbfs",
+            "200",
+            "--json",
+        ],
+        0,
+    );
+    assert_eq!(excluded["total_matches"], 0);
+    assert_eq!(excluded["unevaluated"], 0);
     let mut stale = read(&new);
     stale["files"][0]["analysis_revision"] = json!(0);
     write(&new, &stale);
@@ -915,4 +942,82 @@ fn search_distinguishes_unavailable_analysis_from_measured_null_and_combines_con
     assert_eq!(page["returned"], 1);
     assert_eq!(page["results"][0]["relative_path"], "f-tone.wav");
     assert_eq!(page["unevaluated"], 3);
+}
+#[test]
+fn overlapping_roots_keep_all_searchable_paths_and_return_each_wav_once() {
+    let dir = tempdir().unwrap();
+    let parent = dir.path().join("samples");
+    let drums = parent.join("drums");
+    std::fs::create_dir_all(&drums).unwrap();
+    let kick = drums.join("kick.wav");
+    wav(&kick, 1, 128, 48000, false);
+    let child_index = dir.path().join("a-child.json");
+    let parent_index = dir.path().join("z-parent.json");
+    index(&drums, &child_index, true);
+    index(&parent, &parent_index, false);
+
+    for sources in [[&child_index, &parent_index], [&parent_index, &child_index]] {
+        for query in ["drums", "kick", "drums/kick"] {
+            let query = query.replace('/', std::path::MAIN_SEPARATOR_STR);
+            let report = cli(
+                &[
+                    "sample",
+                    "search",
+                    text(sources[0]),
+                    text(sources[1]),
+                    "--query",
+                    &query,
+                    "--min-peak-dbfs",
+                    "-30",
+                    "--json",
+                ],
+                0,
+            );
+
+            assert_eq!(report["total_files"], 1);
+            assert_eq!(report["total_matches"], 1, "{query}");
+            assert_eq!(report["returned"], 1);
+            assert_eq!(report["results"][0]["analysis_status"], "analyzed");
+            assert_eq!(
+                Path::new(report["results"][0]["path"].as_str().unwrap()),
+                kick.canonicalize().unwrap()
+            );
+        }
+    }
+}
+
+#[test]
+fn index_reports_an_absolute_output_path_for_relative_destinations() {
+    let dir = tempdir().unwrap();
+    let samples = dir.path().join("samples");
+    std::fs::create_dir(&samples).unwrap();
+    wav(&samples.join("sample.wav"), 1, 16, 48000, true);
+
+    let output = Command::cargo_bin("sonalloy")
+        .unwrap()
+        .current_dir(dir.path())
+        .args([
+            "sample",
+            "index",
+            "samples",
+            "--output",
+            "samples.index.json",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: Value = serde_json::from_slice(&output).unwrap();
+
+    let index = Path::new(report["index"].as_str().unwrap());
+    assert!(index.is_absolute());
+    assert_eq!(
+        index.canonicalize().unwrap(),
+        dir.path()
+            .join("samples.index.json")
+            .canonicalize()
+            .unwrap()
+    );
 }

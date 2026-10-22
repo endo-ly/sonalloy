@@ -95,42 +95,21 @@ pub(super) fn run(args: &SearchArgs) -> Result<Report, CliFailure> {
             ));
         }
     }
-    let sources = args
-        .indexes
-        .iter()
-        .map(|path| normalized(path))
-        .collect::<Result<BTreeSet<_>, _>>()?;
-    let mut candidates: BTreeMap<PathBuf, Vec<Candidate>> = BTreeMap::new();
-    for source in sources {
-        let index = index::read(&source)?;
-        for record in index.files {
-            let path = index.source_root.join(&record.relative_path);
-            // Missing files remain searchable using their last indexed absolute path.
-            let path = if path.exists() {
-                normalized(&path)?
-            } else {
-                path
-            };
-            let candidate = Candidate {
-                path: path.clone(),
-                source: source.clone(),
-                record,
-            };
-            candidates.entry(path).or_default().push(candidate);
-        }
-    }
-    let mut candidates = candidates
+    let groups = collect_candidates(&args.indexes)?;
+    let total_files = groups.len();
+    let query = args.query.as_ref().map(|q| q.to_lowercase());
+    let mut candidates = groups
         .into_values()
-        .map(merge)
+        .map(|group| evaluate(group, args, query.as_deref()))
         .collect::<Result<Vec<_>, _>>()?;
     candidates.sort_by(|a, b| {
-        a.source
-            .cmp(&b.source)
-            .then_with(|| a.record.relative_path.cmp(&b.record.relative_path))
+        a.0.source
+            .cmp(&b.0.source)
+            .then_with(|| a.0.record.relative_path.cmp(&b.0.record.relative_path))
     });
     let mut report = Report {
         status: "ok",
-        total_files: candidates.len(),
+        total_files,
         evaluated: 0,
         total_matches: 0,
         returned: 0,
@@ -139,10 +118,9 @@ pub(super) fn run(args: &SearchArgs) -> Result<Report, CliFailure> {
         results: Vec::new(),
         diagnostics: Vec::new(),
     };
-    let query = args.query.as_ref().map(|q| q.to_lowercase());
-    for candidate in candidates {
+    for (candidate, matched) in candidates {
         let record = candidate.record;
-        match matches(&record, args, query.as_deref()) {
+        match matched {
             None => {
                 report.unevaluated += 1;
             }
@@ -172,29 +150,81 @@ pub(super) fn run(args: &SearchArgs) -> Result<Report, CliFailure> {
     Ok(report)
 }
 
-fn merge(candidates: Vec<Candidate>) -> Result<Candidate, CliFailure> {
+fn collect_candidates(
+    indexes: &[PathBuf],
+) -> Result<BTreeMap<PathBuf, Vec<Candidate>>, CliFailure> {
+    let sources = indexes
+        .iter()
+        .map(|path| normalized(path))
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    let mut candidates: BTreeMap<PathBuf, Vec<Candidate>> = BTreeMap::new();
+    for source in sources {
+        let index = index::read(&source)?;
+        for record in index.files {
+            let path = index.source_root.join(&record.relative_path);
+            candidates.entry(path.clone()).or_default().push(Candidate {
+                path,
+                source: source.clone(),
+                record,
+            });
+        }
+    }
+    Ok(candidates)
+}
+
+fn evaluate(
+    candidates: Vec<Candidate>,
+    args: &SearchArgs,
+    query: Option<&str>,
+) -> Result<(Candidate, Option<bool>), CliFailure> {
+    let path_matches = query.is_none_or(|query| {
+        candidates.iter().any(|candidate| {
+            candidate
+                .record
+                .relative_path
+                .to_lowercase()
+                .contains(query)
+        })
+    });
+    let mut candidates = candidates.into_iter();
+    let mut best = candidates.next().expect("one or more records per WAV");
+    if !path_matches {
+        return Ok((best, Some(false)));
+    }
+    let mut matched = matches(&best.record, args);
+    if candidates.len() == 0 {
+        return Ok((best, matched));
+    }
+    // Only overlapping index records need to be compared with the current WAV.
+    let fingerprint = index::fingerprint(&best.path).ok();
     let rank = |candidate: &Candidate| {
         (
-            candidate.record.matches_file(&candidate.path),
+            fingerprint.as_ref().is_some_and(|(size, modified)| {
+                *size == candidate.record.size_bytes && *modified == candidate.record.modified_time
+            }),
             candidate.record.analysis_status() == "analyzed",
             candidate.record.audio.is_some(),
         )
     };
-    let mut candidates = candidates.into_iter();
-    let mut best = candidates.next().expect("one or more records per WAV");
     let mut best_rank = rank(&best);
+    let mut all_mismatch = matched == Some(false);
     let mut conflict = None;
     for candidate in candidates {
         let candidate_rank = rank(&candidate);
         if candidate_rank > best_rank {
             best_rank = candidate_rank;
+            matched = matches(&candidate.record, args);
+            all_mismatch = matched == Some(false);
             best = candidate;
             conflict = None;
-        } else if candidate_rank == best_rank && !equivalent(&best.record, &candidate.record) {
-            conflict = Some(candidate.source);
+        } else if candidate_rank == best_rank {
+            all_mismatch &= matches(&candidate.record, args) == Some(false);
+            if !equivalent(&best.record, &candidate.record) {
+                conflict = Some(candidate.source);
+            }
         }
     }
-    if let Some(source) = conflict {
+    if let Some(source) = conflict.filter(|_| !all_mismatch) {
         return Err(failure(
             &best.path,
             format!(
@@ -204,7 +234,7 @@ fn merge(candidates: Vec<Candidate>) -> Result<Candidate, CliFailure> {
             ),
         ));
     }
-    Ok(best)
+    Ok((best, matched))
 }
 
 fn equivalent(a: &Record, b: &Record) -> bool {
@@ -216,10 +246,7 @@ fn equivalent(a: &Record, b: &Record) -> bool {
         && a.diagnostics == b.diagnostics
 }
 
-fn matches(record: &Record, args: &SearchArgs, query: Option<&str>) -> Option<bool> {
-    if query.is_some_and(|query| !record.relative_path.to_lowercase().contains(query)) {
-        return Some(false);
-    }
+fn matches(record: &Record, args: &SearchArgs) -> Option<bool> {
     let mut conditions = Vec::new();
     if let Some(rate) = args.sample_rate {
         conditions.push(record.audio.as_ref().map(|a| a.sample_rate == rate));

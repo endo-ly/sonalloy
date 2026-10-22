@@ -43,11 +43,6 @@ impl Record {
             "analyzed"
         }
     }
-
-    pub(super) fn matches_file(&self, path: &Path) -> bool {
-        fingerprint(path)
-            .is_ok_and(|(size, modified)| size == self.size_bytes && modified == self.modified_time)
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -234,6 +229,7 @@ pub(super) fn run(args: &IndexArgs) -> Result<Report, CliFailure> {
             files,
         },
     )?;
+    report.index = path_text(&normalized(&args.output)?)?;
     Ok(report)
 }
 
@@ -288,7 +284,7 @@ fn analyze_record(path: &Path, record: &mut Record) -> bool {
     false
 }
 
-fn fingerprint(path: &Path) -> Result<(u64, ModifiedTime), CliFailure> {
+pub(super) fn fingerprint(path: &Path) -> Result<(u64, ModifiedTime), CliFailure> {
     let metadata = std::fs::metadata(path).map_err(|error| failure(path, error.to_string()))?;
     let time = metadata
         .modified()
