@@ -15,7 +15,8 @@ pub use analysis::{
     analyze_rendered_audio,
 };
 pub use asset::{
-    AudioFileError, PreparedAudio, PreparedAudioChannels, SampleMetadata, prepare_audio_file,
+    AudioFileError, AudioFileMetadata, PreparedAudio, PreparedAudioChannels, SampleMetadata,
+    prepare_audio_file, read_audio_file, read_audio_file_metadata,
 };
 pub use compiler::{
     CompileContext, CompileResult, CompiledAdditive, CompiledAdditiveParameters,

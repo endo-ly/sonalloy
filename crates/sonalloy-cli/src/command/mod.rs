@@ -15,6 +15,7 @@ mod instrument;
 mod preset;
 mod realtime;
 mod render;
+mod sample;
 pub(crate) mod score;
 
 mod update;
@@ -36,6 +37,11 @@ pub(super) struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Analyze, index, and search external WAV samples.
+    Sample {
+        #[command(subcommand)]
+        command: sample::SampleCommand,
+    },
     /// Create, validate, and inspect JSON Instrument Definitions.
     Instrument {
         #[command(subcommand)]
@@ -89,6 +95,7 @@ If `--midi-device` is omitted, no available MIDI inputs is an error, one input i
 
 pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
+        Command::Sample { command } => sample::run(command),
         Command::Instrument { command } => instrument::run(command),
         Command::Score { command } => score::run(command),
         Command::Preset { command } => preset::run(command),

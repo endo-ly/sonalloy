@@ -1,5 +1,5 @@
 use realfft::RealFftPlanner;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::render::RenderedAudio;
@@ -33,7 +33,7 @@ pub enum AudioAnalysisError {
 }
 
 /// Deterministic facts measured from one rendered audio buffer.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioAnalysis {
     /// Output sample rate.
     pub sample_rate: u32,
@@ -60,7 +60,7 @@ pub struct AudioAnalysis {
 }
 
 /// Aggregate level facts.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LevelAnalysis {
     /// Maximum absolute sample over all channels.
     pub peak: f32,
@@ -77,7 +77,7 @@ pub struct LevelAnalysis {
 }
 
 /// Threshold-based signal activity facts.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ActivityAnalysis {
     /// Fixed activity threshold in dBFS.
     pub threshold_dbfs: f32,
@@ -90,7 +90,7 @@ pub struct ActivityAnalysis {
 }
 
 /// Adjacent-frame continuity facts.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContinuityAnalysis {
     /// Fixed large-delta threshold.
     pub large_delta_threshold: f32,
@@ -103,16 +103,16 @@ pub struct ContinuityAnalysis {
 }
 
 /// Stereo relationship facts.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StereoAnalysis {
     /// Pearson-style zero-mean correlation, or null when undefined.
     pub correlation: Option<f32>,
 }
 
 /// Spectrum and known-reference facts.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpectrumAnalysis {
-    /// Non-overlapping frequency-band powers from the same averaged mono spectrum.
+    /// Non-overlapping frequency-band powers from the channel-averaged power spectrum.
     pub bands: Vec<SpectralBand>,
     /// FFT size used for the summary, or zero when no FFT can be formed.
     pub fft_size: usize,
@@ -128,9 +128,9 @@ pub struct SpectrumAnalysis {
     pub harmonic_energy_ratio: Option<f32>,
 }
 
-/// Energy in a frequency band of the Hann-windowed mono spectrum.
+/// Energy in a frequency band of the Hann-windowed channel-averaged power spectrum.
 /// Bands are half-open; the last available band includes the Nyquist bin.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpectralBand {
     /// Inclusive lower frequency boundary in Hz.
     pub lower_hz: f32,
@@ -199,7 +199,7 @@ fn spectral_bands(
 }
 
 /// One local maximum in the averaged spectrum.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpectralPeak {
     /// Center frequency of the FFT bin.
     pub frequency_hz: f32,
@@ -426,53 +426,47 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
     };
     let fft_size = fft_size.min(4096);
     let hop_size = fft_size / 2;
-    let mono = (0..frames)
-        .map(|frame| {
-            let (sum, count) =
-                audio
-                    .channels
-                    .iter()
-                    .fold((0.0_f32, 0_u32), |(sum, count), channel| {
-                        let sample = channel[frame];
-                        if sample.is_finite() {
-                            (sum + sample, count + 1)
-                        } else {
-                            (sum, count)
-                        }
-                    });
-            if count == 0 { 0.0 } else { sum / count as f32 }
-        })
-        .collect::<Vec<_>>();
     let mut planner = RealFftPlanner::<f32>::new();
     let plan = planner.plan_fft_forward(fft_size);
     let mut input = plan.make_input_vec();
     let mut output = plan.make_output_vec();
     let mut power = vec![0.0_f32; output.len()];
     let mut windows = 0_usize;
-    let mut start = 0_usize;
-    while start + fft_size <= frames {
-        for (index, sample) in input.iter_mut().enumerate() {
-            let angle = std::f32::consts::TAU * index as f32 / fft_size as f32;
-            let window = 0.5 - 0.5 * angle.cos();
-            *sample = mono[start + index] * window;
+    for channel in &audio.channels {
+        let mut start = 0_usize;
+        while start + fft_size <= frames {
+            for (index, sample) in input.iter_mut().enumerate() {
+                let angle = std::f32::consts::TAU * index as f32 / fft_size as f32;
+                let window = 0.5 - 0.5 * angle.cos();
+                let value = channel[start + index];
+                *sample = if value.is_finite() {
+                    value * window
+                } else {
+                    0.0
+                };
+            }
+            if plan.process(&mut input, &mut output).is_err() {
+                return SpectrumAnalysis {
+                    bands: spectral_bands(&[], audio.sample_rate, 0, 0),
+                    fft_size,
+                    hop_size,
+                    spectral_centroid_hz: None,
+                    peaks: Vec::new(),
+                    reference_frequency_hz,
+                    harmonic_energy_ratio: None,
+                };
+            }
+            for (bin, value) in output.iter().enumerate() {
+                power[bin] += value.norm_sqr();
+            }
+            windows += 1;
+            start += hop_size;
         }
-        if plan.process(&mut input, &mut output).is_err() {
-            return SpectrumAnalysis {
-                bands: spectral_bands(&[], audio.sample_rate, 0, 0),
-                fft_size,
-                hop_size,
-                spectral_centroid_hz: None,
-                peaks: Vec::new(),
-                reference_frequency_hz,
-                harmonic_energy_ratio: None,
-            };
-        }
-        for (bin, value) in output.iter().enumerate() {
-            power[bin] += value.norm_sqr();
-        }
-        windows += 1;
-        start += hop_size;
     }
+    for value in &mut power {
+        *value /= audio.channels.len() as f32;
+    }
+    windows /= audio.channels.len();
     if windows == 0 {
         return SpectrumAnalysis {
             bands: spectral_bands(&[], audio.sample_rate, 0, 0),
@@ -528,23 +522,23 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
             return None;
         }
         let tolerance_hz = bin_hz.max(reference * 0.01);
-        let mut harmonic_power = 0.0_f32;
-        let mut harmonic = 1_u32;
-        while {
-            #[allow(clippy::cast_precision_loss)]
-            let harmonic_value = harmonic as f32;
-            harmonic_value * reference < sample_rate * 0.5
-        } {
-            #[allow(clippy::cast_precision_loss)]
-            let center = harmonic as f32 * reference;
-            for (bin, value) in power.iter().enumerate().skip(1) {
-                let frequency = bin as f32 * bin_hz;
-                if (frequency - center).abs() <= tolerance_hz {
-                    harmonic_power += *value;
+        let harmonic_power: f32 = power
+            .iter()
+            .enumerate()
+            .skip(1)
+            .filter_map(|(bin, power)| {
+                let frequency = f64::from(bin_hz) * bin as f64;
+                let reference = f64::from(reference);
+                let nyquist = f64::from(sample_rate) * 0.5;
+                let last_harmonic = (nyquist / reference).ceil() - 1.0;
+                if last_harmonic < 1.0 {
+                    return None;
                 }
-            }
-            harmonic = harmonic.saturating_add(1);
-        }
+                let harmonic = (frequency / reference).round().max(1.0).min(last_harmonic);
+                ((frequency - harmonic * reference).abs() <= f64::from(tolerance_hz))
+                    .then_some(*power)
+            })
+            .sum();
         Some((harmonic_power / total_power).min(1.0))
     });
     SpectrumAnalysis {
@@ -572,6 +566,54 @@ mod tests {
         RenderedAudio {
             sample_rate: 48_000,
             channels: vec![left, right],
+        }
+    }
+
+    #[test]
+    fn channel_power_preserves_mono_in_phase_and_opposite_phase_spectra() {
+        let wave: Vec<_> = (0..8192)
+            .map(|frame| {
+                #[allow(clippy::cast_precision_loss)]
+                let phase = std::f32::consts::TAU * 440.0 * frame as f32 / 48_000.0;
+                0.5 * phase.sin()
+            })
+            .collect();
+        let options = AudioAnalysisOptions {
+            reference_frequency_hz: Some(440.0),
+        };
+        let mono = analyze_rendered_audio(
+            &RenderedAudio {
+                sample_rate: 48_000,
+                channels: vec![wave.clone()],
+            },
+            options,
+        )
+        .unwrap();
+        let in_phase = analyze_rendered_audio(&audio(wave.clone(), wave.clone()), options).unwrap();
+        let opposite = analyze_rendered_audio(
+            &audio(wave.clone(), wave.iter().map(|v| -v).collect()),
+            options,
+        )
+        .unwrap();
+
+        for stereo in [&in_phase, &opposite] {
+            assert!(
+                (mono.spectrum.spectral_centroid_hz.unwrap()
+                    - stereo.spectrum.spectral_centroid_hz.unwrap())
+                .abs()
+                    < 0.01
+            );
+            for (mono, stereo) in mono.spectrum.bands.iter().zip(&stereo.spectrum.bands) {
+                assert!((mono.mean_square.unwrap() - stereo.mean_square.unwrap()).abs() < 1e-7);
+            }
+            assert!(stereo.spectrum.harmonic_energy_ratio.unwrap() > 0.8);
+        }
+        assert!((opposite.stereo.correlation.unwrap() + 1.0).abs() < 1e-6);
+        let quiet = analyze_rendered_audio(&audio(wave, vec![0.0; 8192]), options).unwrap();
+        for (expected, actual) in mono.spectrum.bands.iter().zip(&quiet.spectrum.bands) {
+            if let (Some(expected), Some(actual)) = (expected.mean_square, actual.mean_square) {
+                assert!((expected * 0.5 - actual).abs() < 1e-6);
+            }
         }
     }
 
