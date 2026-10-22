@@ -425,17 +425,35 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 }
 ```
 
+| Field | 型・値 | 省略時 | 動作 |
+|---|---|---|---|
+| `interpolation` | `cubic` | 省略不可 | Sample位置の補間方式 |
+| `note_off_behavior` | `release` / `ignore` | `release` | `release`はNote OffでLayerのReleaseへ移り、`ignore`はSample終端まで再生 |
+| `normalize` | 設定Object / `null` | 無効 | 再生範囲の音量を目標に合わせる |
+
+`note_off_behavior: "ignore"`は`trigger.event: "note_on"`で使い、すべてのZoneで`playback.loop: null`を指定します。ADSRは通常どおり作用します。Sampleの音量を最後まで保つには、`sustain_level: 1.0`を指定します。
+
+| Field | 値 | 動作 |
+|---|---|---|
+| `scope` | `zone` / `layer` | `zone`は各Zone、`layer`は基準Zoneに合わせて全Zoneを調整 |
+| `measure` | `peak` / `rms_active` | `peak`は最大振幅、`rms_active`は無音部分を除いたRMS |
+| `target_db` | -60〜0 dBFS | 測定音量の目標 |
+| `reference_zone` | Zone ID / `null` | `scope: "layer"`では既存ZoneのIDを指定。`zone`では指定しない |
+
+`zone`では各Zone、`layer`では`reference_zone`の再生範囲に音が必要です。正規化ゲインはZoneの`gain_db`に加算し、Layerの`gain_db`には作用しません。
+
 **Zone**
 
 | Field | Range | 意味 |
 |---|---|---|
 | `id` | 一意な文字列 | Zone識別子 |
 | `asset` | — | Mono / StereoのWAV |
-| `root_note` | 0〜127 | Zoneの基準音程 |
+| `root_note` | 0〜127 | Zoneの基準音程。`pitch_tracking`の値によらず必須 |
+| `pitch_tracking` | Boolean | `true` | `false`なら録音時の音程を保ち、鍵盤による音程変化とポルタメントを受けない。Layerの`tuning_cents`と変調は適用される |
+| `gain_db` | -60〜12 dB | 0 dB | Zoneごとの音量調整 |
 | `key_min` / `key_max` | 0〜127 | 発音するMIDI Note範囲 |
 | `velocity_min` / `velocity_max` | 1〜127 | 発音するVelocity範囲 |
 | `round_robin_group` | — / `null` | 同一条件のZoneをDefinition順に選ぶGroup |
-| `interpolation` | `cubic` | 補間方式 |
 
 - ZoneのKey / Velocity範囲が重なってよいのは、同じ`round_robin_group`を持ち、範囲が完全一致するときだけです
 - 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterで交代します
@@ -460,7 +478,7 @@ Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`
 
 `fixed_stretch`と`tempo_sync`のDuration比が0.5〜2.0の範囲外だとProcess Errorです。
 
-Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にします。
+Note Offで発音するSample Layerを作る場合は、Layerの`trigger.event`を`note_off`にします。
 
 ## Granular
 

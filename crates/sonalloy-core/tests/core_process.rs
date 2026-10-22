@@ -8,10 +8,10 @@ use sonalloy_core::{
     LfoDefinition, LfoWaveform, MAX_TRACE_OBSERVATIONS, MacroDefinition, ModulationCurve,
     ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
     ModulationSourceDefinition, MusicalTimeMap, NoiseColor, NoiseDefinition, OscillatorDefinition,
-    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RandomDefinition, RenderError, RenderRequest, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, ScheduledEvent, TraceRequest, compile_instrument,
-    render_instrument, render_instrument_with_trace,
+    OscillatorWaveform, PerformanceDefinition, PortamentoDefinition, ProcessBlock, ProcessContext,
+    ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition,
+    RenderError, RenderRequest, SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent,
+    TraceRequest, compile_instrument, render_instrument, render_instrument_with_trace,
 };
 
 fn definition() -> InstrumentDefinition {
@@ -1395,6 +1395,8 @@ fn sample_zone(
             sha256: Some(METAL_HIT_HASH.to_owned()),
         },
         root_note: 60,
+        pitch_tracking: true,
+        gain_db: 0.0,
         key_min,
         key_max,
         velocity_min,
@@ -1754,6 +1756,450 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
         .map(|(left, right)| f64::from((*left - *right).abs()))
         .sum::<f64>();
     assert!(difference > 0.1, "key mapping did not change the region");
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn sample_pitch_tracking_note_off_and_zone_gain_follow_the_selected_zone() {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let render = |source: &InstrumentDefinition,
+                  note_number: u8,
+                  note_off_frame: Option<u64>,
+                  duration_frames: usize| {
+        let instrument = compile_instrument(
+            source,
+            &CompileContext {
+                definition_base_dir: base_dir.clone(),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+            },
+        )
+        .instrument
+        .expect("sample definition compiles");
+        let mut events = vec![ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number,
+                velocity: 100,
+            },
+        }];
+        if let Some(absolute_frame) = note_off_frame {
+            events.push(ScheduledEvent {
+                absolute_frame,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            });
+        }
+        render_instrument(
+            instrument,
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size: 257,
+                duration_frames: duration_frames.try_into().expect("frame count fits u64"),
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("sample render succeeds")
+    };
+    let sample_definition = || {
+        sample_only_definition(vec![sample_zone(
+            "main",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            127,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        )])
+    };
+
+    let tracked = sample_definition();
+    let tracked_root = render(&tracked, 60, None, 1024);
+    let tracked_octave = render(&tracked, 72, None, 1024);
+    assert_ne!(tracked_root.channels, tracked_octave.channels);
+
+    let mut fixed = sample_definition();
+    let GeneratorDefinition::Sample(sample) = &mut fixed.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].pitch_tracking = false;
+    let fixed_root = render(&fixed, 60, None, 1024);
+    let fixed_octave = render(&fixed, 72, None, 1024);
+    assert_eq!(fixed_root.channels, fixed_octave.channels);
+
+    let mut fixed_stretched = fixed.clone();
+    let GeneratorDefinition::Sample(sample) = &mut fixed_stretched.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].playback.time =
+        sonalloy_core::SampleTimeDefinition::FixedStretch { ratio: 1.0 };
+    let stretched_root = render(&fixed_stretched, 60, None, 32_000);
+    let stretched_octave = render(&fixed_stretched, 72, None, 32_000);
+    assert!(
+        stretched_root.channels[0]
+            .iter()
+            .any(|value| value.abs() > 1.0e-5)
+    );
+    assert_eq!(stretched_root.channels, stretched_octave.channels);
+
+    let gain = 10.0_f32.powf(6.0 / 20.0);
+    let mut stretch_gain_reference = fixed_stretched.clone();
+    stretch_gain_reference.voice_processors.clear();
+    let stretch_gain_reference = render(&stretch_gain_reference, 60, None, 32_000);
+    let mut stretched_louder_definition = fixed_stretched.clone();
+    stretched_louder_definition.voice_processors.clear();
+    let GeneratorDefinition::Sample(sample) = &mut stretched_louder_definition.layers[0].generator
+    else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 6.0;
+    let stretched_louder = render(&stretched_louder_definition, 60, None, 32_000);
+    for (actual, original) in stretched_louder.channels[0]
+        .iter()
+        .zip(&stretch_gain_reference.channels[0])
+    {
+        assert_relative_eq!(*actual, *original * gain, epsilon = 2.0e-5);
+    }
+
+    let mut tuned = fixed.clone();
+    tuned.layers[0].tuning_cents = 100.0;
+    let tuned_output = render(&tuned, 60, None, 1024);
+    assert_ne!(fixed_root.channels, tuned_output.channels);
+
+    let mut gain_reference = tracked.clone();
+    gain_reference.voice_processors.clear();
+    let gain_reference = render(&gain_reference, 60, None, 1024);
+    let mut louder = tracked.clone();
+    louder.voice_processors.clear();
+    let GeneratorDefinition::Sample(sample) = &mut louder.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 6.0;
+    let louder_output = render(&louder, 60, None, 1024);
+    for (actual, original) in louder_output.channels[0]
+        .iter()
+        .zip(&gain_reference.channels[0])
+    {
+        assert_relative_eq!(*actual, *original * gain, epsilon = 2.0e-5);
+    }
+
+    let mut one_shot = sample_definition();
+    let GeneratorDefinition::Sample(sample) = &mut one_shot.layers[0].generator else {
+        unreachable!();
+    };
+    sample.note_off_behavior = sonalloy_core::SampleNoteOffBehavior::Ignore;
+    let held = render(&one_shot, 60, None, 4096);
+    let short_gate = render(&one_shot, 60, Some(64), 4096);
+    let release = render(&tracked, 60, Some(64), 4096);
+    assert_eq!(held.channels, short_gate.channels);
+    assert!(
+        short_gate.channels[0][1_024..2_000]
+            .iter()
+            .any(|value| value.abs() > 1.0e-5)
+    );
+    assert!(
+        release.channels[0][1_024..]
+            .iter()
+            .all(|value| value.abs() < 1.0e-8)
+    );
+
+    let mut stretched_one_shot = fixed_stretched;
+    let GeneratorDefinition::Sample(sample) = &mut stretched_one_shot.layers[0].generator else {
+        unreachable!();
+    };
+    sample.note_off_behavior = sonalloy_core::SampleNoteOffBehavior::Ignore;
+    let stretched_held = render(&stretched_one_shot, 60, None, 32_000);
+    let stretched_short_gate = render(&stretched_one_shot, 60, Some(64), 32_000);
+    assert_eq!(stretched_held.channels, stretched_short_gate.channels);
+}
+
+fn render_monophonic_sample(
+    pitch_tracking: bool,
+    portamento: Option<PortamentoDefinition>,
+    tuning_cents: f32,
+    modulation_depth: Option<f32>,
+) -> sonalloy_core::RenderedAudio {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let mut definition = sample_only_definition(vec![sample_zone(
+        "main",
+        "../../testdata/assets/metal-hit.wav",
+        0,
+        127,
+        1,
+        127,
+        None,
+        0.0,
+        0.08,
+    )]);
+    definition.performance = PerformanceDefinition::Monophonic {
+        legato: true,
+        portamento,
+    };
+    definition.layers[0].tuning_cents = tuning_cents;
+    let GeneratorDefinition::Sample(sample) = &mut definition.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].pitch_tracking = pitch_tracking;
+    definition.modulation = modulation_depth.map(|depth| ModulationDefinition {
+        sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
+            id: "tuning_lfo".to_owned(),
+            waveform: LfoWaveform::Sine,
+            rate: sonalloy_core::ModulationRateDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationRateUnit::PerSecond,
+            },
+            phase: 0.0,
+        })],
+        routes: vec![ModulationRouteDefinition {
+            source: "tuning_lfo".to_owned(),
+            target: format!("layer.{}.tuning", definition.layers[0].id),
+            depth: ModulationDepthDefinition {
+                value: depth,
+                unit: sonalloy_core::ModulationUnit::Cents,
+            },
+            curve: ModulationCurve::Linear,
+            depth_control: None,
+        }],
+    });
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+        },
+    );
+    let instrument = result
+        .instrument
+        .unwrap_or_else(|| panic!("compile diagnostics: {:?}", result.diagnostics));
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 3_000,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 1_024,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 72,
+                    velocity: 100,
+                },
+            },
+        ],
+    )
+    .expect("monophonic sample render succeeds")
+}
+
+#[test]
+fn fixed_sample_ignores_monophonic_portamento_but_keeps_tuning_modulation() {
+    let glide = Some(PortamentoDefinition { time_seconds: 0.1 });
+    let fixed_with_portamento = render_monophonic_sample(false, glide, 35.0, Some(40.0));
+    let fixed_without_portamento = render_monophonic_sample(false, None, 35.0, Some(40.0));
+    assert_eq!(
+        fixed_with_portamento.channels,
+        fixed_without_portamento.channels
+    );
+    let fixed_without_tuning = render_monophonic_sample(false, None, 0.0, Some(40.0));
+    assert_ne!(
+        fixed_without_portamento.channels,
+        fixed_without_tuning.channels
+    );
+    let fixed_without_modulation = render_monophonic_sample(false, None, 35.0, None);
+    assert_ne!(
+        fixed_without_portamento.channels,
+        fixed_without_modulation.channels
+    );
+
+    let tracked_with_portamento = render_monophonic_sample(true, glide, 35.0, Some(40.0));
+    let tracked_without_portamento = render_monophonic_sample(true, None, 35.0, Some(40.0));
+    assert_ne!(
+        tracked_with_portamento.channels,
+        tracked_without_portamento.channels
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn sample_normalization_uses_each_zone_or_one_layer_reference() {
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
+    let mut source = sample_only_definition(vec![
+        sample_zone(
+            "low",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            60,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "high",
+            "../../testdata/assets/metal-hit.wav",
+            61,
+            127,
+            1,
+            127,
+            None,
+            0.08,
+            0.16,
+        ),
+    ]);
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.zones[0].gain_db = 2.0;
+    sample.zones[1].gain_db = -3.0;
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Zone,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: None,
+    });
+    let compile = |definition: &InstrumentDefinition| {
+        compile_instrument(
+            definition,
+            &CompileContext {
+                definition_base_dir: base_dir.clone(),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+            },
+        )
+    };
+    let zone_compiled = compile(&source)
+        .instrument
+        .expect("zone normalization compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(zone_sample) =
+        &zone_compiled.layers[0].generator
+    else {
+        unreachable!();
+    };
+    for zone in &zone_sample.zones {
+        let prepared = zone.source.as_ref().expect("sample zone is prepared");
+        let peak = match &prepared.channels {
+            sonalloy_core::PreparedAudioChannels::Mono { samples } => samples
+                [zone.playback.start_frame..zone.playback.end_frame]
+                .iter()
+                .map(|value| value.abs())
+                .fold(0.0_f32, f32::max),
+            sonalloy_core::PreparedAudioChannels::Stereo { left, right } => left
+                [zone.playback.start_frame..zone.playback.end_frame]
+                .iter()
+                .chain(&right[zone.playback.start_frame..zone.playback.end_frame])
+                .map(|value| value.abs())
+                .fold(0.0_f32, f32::max),
+        };
+        let measured_db = 20.0 * peak.log10();
+        assert_relative_eq!(zone.normalize_gain_db + measured_db, -6.0, epsilon = 1.0e-4);
+        assert_relative_eq!(
+            zone.effective_gain_db,
+            zone.normalize_gain_db + zone.gain_db,
+            epsilon = 1.0e-6
+        );
+    }
+    assert_eq!(source.layers[0].gain_db, 0.0);
+
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Layer,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: Some("low".to_owned()),
+    });
+    let layer_compiled = compile(&source)
+        .instrument
+        .expect("layer normalization compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(layer_sample) =
+        &layer_compiled.layers[0].generator
+    else {
+        unreachable!();
+    };
+    assert_eq!(
+        layer_sample.zones[0].normalize_gain_db,
+        layer_sample.zones[1].normalize_gain_db
+    );
+    assert_relative_eq!(
+        layer_sample.zones[0].normalize_gain_db,
+        zone_sample.zones[0].normalize_gain_db,
+        epsilon = 1.0e-6
+    );
+}
+
+#[test]
+fn sample_normalization_rejects_silence_but_unconfigured_samples_still_compile() {
+    let directory = tempfile::tempdir().expect("fixture directory creates");
+    let path = directory.path().join("silent.wav");
+    let mut bytes = Vec::with_capacity(52);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&44_u32.to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16_u32.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&48_000_u32.to_le_bytes());
+    bytes.extend_from_slice(&96_000_u32.to_le_bytes());
+    bytes.extend_from_slice(&2_u16.to_le_bytes());
+    bytes.extend_from_slice(&16_u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&8_u32.to_le_bytes());
+    bytes.extend_from_slice(&[0; 8]);
+    std::fs::write(&path, bytes).expect("silent WAV writes");
+
+    let mut source = sample_only_definition(vec![sample_zone(
+        "silent",
+        "silent.wav",
+        0,
+        127,
+        1,
+        127,
+        None,
+        0.0,
+        0.08,
+    )]);
+    {
+        let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+            unreachable!();
+        };
+        sample.zones[0].asset.sha256 = None;
+        sample.zones[0].playback.region.end_seconds = None;
+    }
+    let context = CompileContext {
+        definition_base_dir: directory.path().to_path_buf(),
+        process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"),
+    };
+    assert!(compile_instrument(&source, &context).instrument.is_some());
+
+    let GeneratorDefinition::Sample(sample) = &mut source.layers[0].generator else {
+        unreachable!();
+    };
+    sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+        scope: sonalloy_core::SampleNormalizationScope::Zone,
+        measure: sonalloy_core::SampleNormalizationMeasure::Peak,
+        target_db: -6.0,
+        reference_zone: None,
+    });
+    let result = compile_instrument(&source, &context);
+    assert!(result.instrument.is_none());
+    assert!(result.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == DiagnosticCode::CompileError
+            && diagnostic.path.as_deref()
+                == Some("layers[0].generator.sample.zones[0].playback.region")
+    }));
 }
 
 #[test]

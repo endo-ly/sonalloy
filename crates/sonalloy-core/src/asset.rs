@@ -15,7 +15,7 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use thiserror::Error;
 
-use crate::definition::AssetReference;
+use crate::definition::{AssetReference, SampleNormalizationMeasure};
 
 /// Audio metadata retained with a prepared sample.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +77,55 @@ impl PreparedAudio {
             PreparedAudioChannels::Stereo { .. } => 2,
         }
     }
+}
+
+pub(crate) fn measure_audio_region(
+    audio: &PreparedAudio,
+    start_frame: usize,
+    end_frame: usize,
+    measure: SampleNormalizationMeasure,
+) -> Option<f64> {
+    if start_frame >= end_frame || end_frame > audio.frames {
+        return None;
+    }
+    let (first, second) = match &audio.channels {
+        PreparedAudioChannels::Mono { samples } => (samples.as_ref(), None),
+        PreparedAudioChannels::Stereo { left, right } => (left.as_ref(), Some(right.as_ref())),
+    };
+    if first.len() < end_frame || second.is_some_and(|channel| channel.len() < end_frame) {
+        return None;
+    }
+    let first = &first[start_frame..end_frame];
+    let second = second.map(|channel| &channel[start_frame..end_frame]);
+    let peak = first
+        .iter()
+        .chain(second.into_iter().flatten())
+        .map(|sample| f64::from(sample.abs()))
+        .fold(0.0_f64, f64::max);
+    if !peak.is_finite() || peak == 0.0 {
+        return None;
+    }
+    if measure == SampleNormalizationMeasure::Peak {
+        return Some(peak);
+    }
+
+    let active_threshold = peak * 0.01;
+    let mut square_sum = 0.0;
+    let mut sample_count = 0_usize;
+    for frame in 0..first.len() {
+        let first_value = f64::from(first[frame]);
+        let second_value = second.map_or(0.0, |channel| f64::from(channel[frame]));
+        if first_value.abs().max(second_value.abs()) >= active_threshold {
+            square_sum += first_value * first_value + second_value * second_value;
+            sample_count += if second.is_some() { 2 } else { 1 };
+        }
+    }
+    if sample_count == 0 || !square_sum.is_finite() {
+        return None;
+    }
+    #[allow(clippy::cast_precision_loss)]
+    let rms = (square_sum / sample_count as f64).sqrt();
+    (rms.is_finite() && rms > 0.0).then_some(rms)
 }
 
 /// Decode and prepare an external WAV file for one engine sample rate.
@@ -312,10 +361,18 @@ pub(crate) fn resolved_asset_path(base_dir: &Path, reference: &str) -> PathBuf {
 
 fn resolve_path(base_dir: &Path, reference: &str) -> PathBuf {
     let path = Path::new(reference);
-    if path.is_absolute() {
+    let resolved = if path.is_absolute() {
         path.to_path_buf()
     } else {
         base_dir.join(path)
+    };
+    #[cfg(windows)]
+    {
+        std::fs::canonicalize(&resolved).unwrap_or(resolved)
+    }
+    #[cfg(not(windows))]
+    {
+        resolved
     }
 }
 
@@ -517,9 +574,12 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        AssetError, PreparedAudioChannels, downmix, linear_resample, prepare_asset, resample,
+        AssetError, PreparedAudio, PreparedAudioChannels, SampleMetadata, downmix, linear_resample,
+        measure_audio_region, prepare_asset, resample,
     };
-    use crate::definition::AssetReference;
+    #[cfg(windows)]
+    use super::{load_audio, resolve_path};
+    use crate::definition::{AssetReference, SampleNormalizationMeasure};
 
     fn write_pcm16_wav(path: &Path, channels: u16, sample_rate: u32, samples: &[i16]) {
         let payload_len = u32::try_from(samples.len() * 2).expect("test WAV fits RIFF");
@@ -597,6 +657,52 @@ mod tests {
     #[test]
     fn stereo_downmix_averages_each_frame() {
         assert_eq!(downmix(&[1.0, -1.0, 0.5, 0.25], 2), Some(vec![0.0, 0.375]));
+    }
+
+    #[test]
+    fn prepared_audio_measures_region_peak_and_active_stereo_rms() {
+        let audio = PreparedAudio {
+            sample_rate: 48_000.0,
+            frames: 4,
+            source_metadata: SampleMetadata {
+                source_sample_rate: 48_000,
+                source_channels: 2,
+                bits_per_sample: Some(16),
+                source_frames: 4,
+            },
+            channels: PreparedAudioChannels::Stereo {
+                left: std::sync::Arc::from([0.5, 0.001, 0.25, 0.0]),
+                right: std::sync::Arc::from([-0.5, 0.0, 0.0, 0.0]),
+            },
+        };
+
+        assert_eq!(
+            measure_audio_region(&audio, 1, 3, SampleNormalizationMeasure::Peak),
+            Some(0.25)
+        );
+        assert_eq!(
+            measure_audio_region(&audio, 0, 4, SampleNormalizationMeasure::RmsActive),
+            Some(0.375)
+        );
+        assert_eq!(
+            measure_audio_region(&audio, 0, 4, SampleNormalizationMeasure::Peak),
+            Some(0.5)
+        );
+        let silence = PreparedAudio {
+            channels: PreparedAudioChannels::Stereo {
+                left: std::sync::Arc::from([0.0; 4]),
+                right: std::sync::Arc::from([0.0; 4]),
+            },
+            ..audio
+        };
+        assert_eq!(
+            measure_audio_region(&silence, 0, 4, SampleNormalizationMeasure::Peak),
+            None
+        );
+        assert_eq!(
+            measure_audio_region(&silence, 0, 4, SampleNormalizationMeasure::RmsActive),
+            None
+        );
     }
 
     #[test]
@@ -759,5 +865,53 @@ mod tests {
         )
         .expect_err("wrong hash must fail");
         assert!(matches!(error, AssetError::HashMismatch { .. }));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn long_windows_sample_paths_load_from_relative_and_extended_forms() {
+        let directory = fixture_directory();
+        let canonical_root = std::fs::canonicalize(directory.path()).expect("temp path resolves");
+        let root_text = canonical_root.to_string_lossy();
+        let root_without_prefix = Path::new(
+            root_text
+                .strip_prefix(r"\\?\")
+                .expect("canonical Windows path has the extended prefix"),
+        )
+        .to_path_buf();
+        let mut relative = std::path::PathBuf::new();
+        for index in 0..7 {
+            relative.push(format!("segment-{index}-{}", "x".repeat(32)));
+        }
+        let filename = relative.join("long-sample.wav");
+        let extended_path = canonical_root.join(&filename);
+        std::fs::create_dir_all(extended_path.parent().expect("file parent exists"))
+            .expect("long path directories create");
+        write_pcm16_wav(&extended_path, 1, 48_000, &[16_384, -16_384, 8_192, -8_192]);
+        let unprefixed_path = root_without_prefix.join(&filename);
+        assert!(unprefixed_path.to_string_lossy().len() > 260);
+
+        let relative_audio = load_audio(
+            &AssetReference {
+                path: filename.to_string_lossy().into_owned(),
+                sha256: None,
+            },
+            &root_without_prefix,
+        )
+        .expect("long relative path loads");
+        let extended_audio = load_audio(
+            &AssetReference {
+                path: extended_path.to_string_lossy().into_owned(),
+                sha256: None,
+            },
+            Path::new("."),
+        )
+        .expect("extended path loads");
+        assert_eq!(relative_audio.samples, extended_audio.samples);
+        assert!(
+            resolve_path(Path::new("."), &extended_path.to_string_lossy())
+                .to_string_lossy()
+                .starts_with(r"\\?\")
+        );
     }
 }

@@ -213,6 +213,8 @@ impl LayerRuntime {
         note_number: u8,
         tuning_start: f32,
         tuning_end: f32,
+        pitch_glide_start: f32,
+        pitch_glide_end: f32,
         sample_rate: f64,
         tempo_bpm: f64,
         targets: &LayerGeneratorTargetSpan,
@@ -225,6 +227,8 @@ impl LayerRuntime {
             note_number,
             tuning_start,
             tuning_end,
+            pitch_glide_start,
+            pitch_glide_end,
             sample_rate,
             tempo_bpm,
             targets,
@@ -580,10 +584,18 @@ impl VoiceRuntime {
             self.started_at_frame,
         );
         for (index, layer) in self.layers.iter_mut().enumerate() {
+            let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
             if layer.active {
-                layer.note_off();
+                let ignore_note_off = matches!(
+                    &compiled_layer.generator,
+                    CompiledGenerator::Sample(sample)
+                        if sample.note_off_behavior
+                            == crate::definition::SampleNoteOffBehavior::Ignore
+                );
+                if !ignore_note_off {
+                    layer.note_off();
+                }
             } else if layer.armed {
-                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
                 layer.start_armed(note, compiled_layer)?;
             }
         }
@@ -834,8 +846,10 @@ impl VoiceRuntime {
                 let finished = layer.render_source(
                     frames,
                     self.note_number,
-                    target.tuning.start + self.pitch_glide_span.start,
-                    target.tuning.end + self.pitch_glide_span.end,
+                    target.tuning.start,
+                    target.tuning.end,
+                    self.pitch_glide_span.start,
+                    self.pitch_glide_span.end,
                     sample_rate,
                     tempo_bpm,
                     &target.generator,

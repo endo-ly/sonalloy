@@ -4,7 +4,8 @@ use std::sync::Arc;
 use crate::output::print_warnings;
 use sonalloy_core::{
     CompiledInstrument, Diagnostic, ModulationCurve, ModulationUnit, OscillatorWaveform,
-    ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,
+    ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit, SampleNormalizationDefinition,
+    SampleNormalizationMeasure, SampleNormalizationScope,
 };
 
 #[derive(Debug, Serialize)]
@@ -181,6 +182,8 @@ enum InspectGenerator {
     Sample {
         output_mode: &'static str,
         interpolation: &'static str,
+        note_off_behavior: &'static str,
+        normalize: Option<SampleNormalizationDefinition>,
         sample_zone_count: usize,
         sample_enabled_zone_count: usize,
         sample_disabled_zone_count: usize,
@@ -348,6 +351,10 @@ struct InspectSampleZone {
     enabled: bool,
     asset_path: String,
     root_note: u8,
+    pitch_tracking: bool,
+    gain_db: f32,
+    normalize_gain_db: f32,
+    effective_gain_db: f32,
     key_min: u8,
     key_max: u8,
     velocity_min: u8,
@@ -1405,6 +1412,10 @@ fn inspect_sample_zones(
                 enabled: zone.is_enabled(),
                 asset_path: zone.asset_path.clone(),
                 root_note: zone.root_note,
+                pitch_tracking: zone.pitch_tracking,
+                gain_db: zone.gain_db,
+                normalize_gain_db: zone.normalize_gain_db,
+                effective_gain_db: zone.effective_gain_db,
                 key_min: zone.key_min,
                 key_max: zone.key_max,
                 velocity_min: zone.velocity_min,
@@ -1442,6 +1453,7 @@ fn output_mode_name(mode: sonalloy_core::compiler::GeneratorOutputMode) -> &'sta
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn inspect_generator(
     compiled: &CompiledInstrument,
     generator: &sonalloy_core::compiler::CompiledGenerator,
@@ -1513,6 +1525,11 @@ fn inspect_generator(
                 InspectGenerator::Sample {
                     output_mode: output_mode_name(generator.output_mode()),
                     interpolation: "cubic",
+                    note_off_behavior: match sample.note_off_behavior {
+                        sonalloy_core::SampleNoteOffBehavior::Release => "release",
+                        sonalloy_core::SampleNoteOffBehavior::Ignore => "ignore",
+                    },
+                    normalize: sample.normalize.clone(),
                     sample_zone_count,
                     sample_enabled_zone_count,
                     sample_disabled_zone_count: sample_zone_count - sample_enabled_zone_count,
@@ -2651,6 +2668,8 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
         InspectGenerator::Sample {
             output_mode,
             interpolation,
+            note_off_behavior,
+            normalize,
             sample_zone_count,
             sample_enabled_zone_count,
             sample_disabled_zone_count: _,
@@ -2661,11 +2680,32 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                 "layer {layer_id}: enabled {} generator sample interpolation {interpolation} output_mode {output_mode}",
                 *sample_enabled_zone_count > 0,
             );
+            println!("  note_off_behavior: {note_off_behavior}");
+            if let Some(normalize) = normalize {
+                let scope = match normalize.scope {
+                    SampleNormalizationScope::Zone => "zone",
+                    SampleNormalizationScope::Layer => "layer",
+                };
+                let measure = match normalize.measure {
+                    SampleNormalizationMeasure::Peak => "peak",
+                    SampleNormalizationMeasure::RmsActive => "rms_active",
+                };
+                println!(
+                    "  normalization: {scope} {measure} target {:.1} dBFS{}",
+                    normalize.target_db,
+                    normalize
+                        .reference_zone
+                        .as_deref()
+                        .map_or_else(String::new, |id| format!(" reference_zone {id}")),
+                );
+            } else {
+                println!("  normalization: disabled");
+            }
             println!("  sample zones: {sample_enabled_zone_count}/{sample_zone_count} enabled");
             println!("  sample prepared assets: {sample_asset_count}");
             for zone in sample_zones {
                 println!(
-                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} direction {} time {} frames {}..{}",
+                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} pitch_tracking {} gain_db {:.1} normalize_gain_db {:.1} effective_gain_db {:.1} playback {} direction {} time {} frames {}..{}",
                     zone.id,
                     zone.enabled,
                     zone.key_min,
@@ -2673,6 +2713,10 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                     zone.velocity_min,
                     zone.velocity_max,
                     zone.root_note,
+                    zone.pitch_tracking,
+                    zone.gain_db,
+                    zone.normalize_gain_db,
+                    zone.effective_gain_db,
                     zone.playback_type,
                     zone.direction,
                     zone.time_mode,
@@ -3167,6 +3211,14 @@ mod tests {
             end_seconds: 0.06,
             crossfade_seconds: 0.01,
         });
+        sample.zones[0].pitch_tracking = false;
+        sample.zones[0].gain_db = 3.0;
+        sample.normalize = Some(sonalloy_core::SampleNormalizationDefinition {
+            scope: sonalloy_core::SampleNormalizationScope::Zone,
+            measure: sonalloy_core::SampleNormalizationMeasure::RmsActive,
+            target_db: -12.0,
+            reference_zone: None,
+        });
 
         let result = compile_instrument(
             &definition,
@@ -3183,12 +3235,38 @@ mod tests {
         let compiled = instrument.expect("sample Definition compiles");
         let report = make_inspect_report(&compiled, diagnostics);
         assert_eq!(report.layers[0].trigger.event, "note_off");
-        let InspectGenerator::Sample { sample_zones, .. } = &report.layers[0].generator else {
+        let InspectGenerator::Sample {
+            note_off_behavior,
+            normalize,
+            sample_zones,
+            ..
+        } = &report.layers[0].generator
+        else {
             panic!("reference Definition must inspect as a sample generator");
         };
+        assert_eq!(*note_off_behavior, "release");
+        let normalize = normalize.as_ref().expect("normalization is inspected");
+        assert_eq!(normalize.target_db, -12.0);
+        assert!(!sample_zones[0].pitch_tracking);
+        assert_eq!(sample_zones[0].gain_db, 3.0);
+        assert_ne!(sample_zones[0].normalize_gain_db, 0.0);
+        assert_eq!(
+            sample_zones[0].effective_gain_db,
+            sample_zones[0].gain_db + sample_zones[0].normalize_gain_db
+        );
         assert_eq!(sample_zones[0].direction, "reverse");
         assert_eq!(sample_zones[0].crossfade_frames, Some(480));
         assert!(sample_zones[0].source_channels.is_some());
         assert!(sample_zones[0].prepared_frames.is_some());
+
+        let json = serde_json::to_value(report).expect("inspect report serializes");
+        let generator = &json["layers"][0]["generator"];
+        assert_eq!(generator["note_off_behavior"], "release");
+        assert_eq!(generator["normalize"]["scope"], "zone");
+        assert_eq!(generator["normalize"]["measure"], "rms_active");
+        assert_eq!(generator["sample_zones"][0]["pitch_tracking"], false);
+        assert_eq!(generator["sample_zones"][0]["gain_db"], 3.0);
+        assert!(generator["sample_zones"][0]["normalize_gain_db"].is_number());
+        assert!(generator["sample_zones"][0]["effective_gain_db"].is_number());
     }
 }

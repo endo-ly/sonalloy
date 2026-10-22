@@ -238,6 +238,8 @@ impl GeneratorRuntime {
         note_number: u8,
         tuning_start: f32,
         tuning_end: f32,
+        pitch_glide_start: f32,
+        pitch_glide_end: f32,
         sample_rate: f64,
         tempo_bpm: f64,
         targets: &LayerGeneratorTargetSpan,
@@ -250,6 +252,13 @@ impl GeneratorRuntime {
                 kind: crate::process::ProcessorFailureKind::InvalidState,
             });
         }
+        let (tuning_start, tuning_end) = match self {
+            Self::Sample { sample } if !sample.pitch_tracking() => (tuning_start, tuning_end),
+            _ => (
+                tuning_start + pitch_glide_start,
+                tuning_end + pitch_glide_end,
+            ),
+        };
         match self {
             Self::Oscillator(oscillator) => {
                 oscillator.render(
@@ -431,8 +440,8 @@ impl GeneratorRuntime {
                 kind: crate::process::ProcessorFailureKind::InvalidState,
             });
         }
-        if sample.uses_stretch() {
-            return sample.render_stretched(
+        let finished = if sample.uses_stretch() {
+            sample.render_stretched(
                 frames,
                 note_number,
                 tuning_start,
@@ -441,56 +450,70 @@ impl GeneratorRuntime {
                 mono,
                 left,
                 right,
-            );
-        }
-        let start_ratio = playback_ratio(
-            note_number,
-            sample.root_note(),
-            crate::compiler::cents_to_ratio(tuning_start),
-        );
-        let end_ratio = playback_ratio(
-            note_number,
-            sample.root_note(),
-            crate::compiler::cents_to_ratio(tuning_end),
-        );
-        if !start_ratio.is_finite()
-            || !end_ratio.is_finite()
-            || start_ratio <= 0.0
-            || end_ratio <= 0.0
-        {
-            return Err(ProcessError::InvalidFrequency);
-        }
-        if frames == 0 {
-            return Ok(sample.is_finished());
-        }
-        if start_ratio.total_cmp(&end_ratio).is_eq() {
-            for ((mono, left), right) in mono[..frames]
-                .iter_mut()
-                .zip(&mut left[..frames])
-                .zip(&mut right[..frames])
-            {
-                let (sample_left, sample_right) = sample.next_frame_with_ratio(start_ratio);
-                *mono = f32::midpoint(sample_left, sample_right);
-                *left = sample_left;
-                *right = sample_right;
-            }
+            )?
         } else {
-            #[allow(clippy::cast_precision_loss)]
-            let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
-            let mut ratio = start_ratio;
-            for ((mono, left), right) in mono[..frames]
-                .iter_mut()
-                .zip(&mut left[..frames])
-                .zip(&mut right[..frames])
+            let pitch_note_number = sample.pitch_note_number(note_number);
+            let start_ratio = playback_ratio(
+                pitch_note_number,
+                sample.root_note(),
+                crate::compiler::cents_to_ratio(tuning_start),
+            );
+            let end_ratio = playback_ratio(
+                pitch_note_number,
+                sample.root_note(),
+                crate::compiler::cents_to_ratio(tuning_end),
+            );
+            if !start_ratio.is_finite()
+                || !end_ratio.is_finite()
+                || start_ratio <= 0.0
+                || end_ratio <= 0.0
             {
-                let (sample_left, sample_right) = sample.next_frame_with_ratio(ratio);
-                *mono = f32::midpoint(sample_left, sample_right);
-                *left = sample_left;
-                *right = sample_right;
-                ratio *= ratio_step;
+                return Err(ProcessError::InvalidFrequency);
             }
+            if frames == 0 {
+                return Ok(sample.is_finished());
+            }
+            if start_ratio.total_cmp(&end_ratio).is_eq() {
+                for ((mono, left), right) in mono[..frames]
+                    .iter_mut()
+                    .zip(&mut left[..frames])
+                    .zip(&mut right[..frames])
+                {
+                    let (sample_left, sample_right) = sample.next_frame_with_ratio(start_ratio);
+                    *mono = f32::midpoint(sample_left, sample_right);
+                    *left = sample_left;
+                    *right = sample_right;
+                }
+            } else {
+                #[allow(clippy::cast_precision_loss)]
+                let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
+                let mut ratio = start_ratio;
+                for ((mono, left), right) in mono[..frames]
+                    .iter_mut()
+                    .zip(&mut left[..frames])
+                    .zip(&mut right[..frames])
+                {
+                    let (sample_left, sample_right) = sample.next_frame_with_ratio(ratio);
+                    *mono = f32::midpoint(sample_left, sample_right);
+                    *left = sample_left;
+                    *right = sample_right;
+                    ratio *= ratio_step;
+                }
+            }
+            sample.is_finished()
+        };
+
+        let gain = sample.gain_linear();
+        for ((mono, left), right) in mono[..frames]
+            .iter_mut()
+            .zip(&mut left[..frames])
+            .zip(&mut right[..frames])
+        {
+            *mono *= gain;
+            *left *= gain;
+            *right *= gain;
         }
-        Ok(sample.is_finished())
+        Ok(finished)
     }
 
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {

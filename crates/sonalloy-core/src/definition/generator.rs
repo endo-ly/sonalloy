@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::range_message;
-use super::{LayerTriggerDefinition, validate_range};
+use super::{LayerTriggerDefinition, LayerTriggerEvent, validate_range};
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::generator::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SPECTRAL_TILT,
@@ -290,8 +290,65 @@ pub struct FormantBandDefinition {
 pub struct SampleDefinition {
     /// Sample interpolation mode.
     pub interpolation: SampleInterpolation,
+    /// Behavior when the note that started the layer ends.
+    #[serde(default, skip_serializing_if = "is_sample_note_off_release")]
+    pub note_off_behavior: SampleNoteOffBehavior,
+    /// Optional compile-time gain matching for sample zones.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalize: Option<SampleNormalizationDefinition>,
     /// Ordered key, velocity, and playback zones.
     pub zones: Vec<SampleZoneDefinition>,
+}
+
+/// Sample behavior after the triggering note is released.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleNoteOffBehavior {
+    /// Begin the layer envelope release when Note Off arrives.
+    #[default]
+    Release,
+    /// Continue playing to the end of the sample region.
+    Ignore,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
+fn is_sample_note_off_release(value: &SampleNoteOffBehavior) -> bool {
+    *value == SampleNoteOffBehavior::Release
+}
+
+/// Compile-time sample level matching settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleNormalizationDefinition {
+    /// Whether each zone or the whole generator shares a measured gain.
+    pub scope: SampleNormalizationScope,
+    /// Audio level measurement used to calculate gain.
+    pub measure: SampleNormalizationMeasure,
+    /// Desired measured level in dBFS.
+    pub target_db: f32,
+    /// Zone used as the measurement reference when scope is `layer`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_zone: Option<String>,
+}
+
+/// Zones to which one normalization measurement is applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleNormalizationScope {
+    /// Measure and adjust every zone independently.
+    Zone,
+    /// Measure one reference zone and apply its gain to every zone.
+    Layer,
+}
+
+/// Audio level measurement used by sample normalization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleNormalizationMeasure {
+    /// Highest absolute sample value in the playback region.
+    Peak,
+    /// RMS of active frames in the playback region.
+    RmsActive,
 }
 
 /// Granular generator settings.
@@ -582,6 +639,15 @@ pub struct SampleZoneDefinition {
     pub asset: AssetReference,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
+    /// Whether MIDI note changes alter the sample playback pitch.
+    #[serde(
+        default = "sample_pitch_tracking_default",
+        skip_serializing_if = "is_true"
+    )]
+    pub pitch_tracking: bool,
+    /// Additional zone gain in decibels.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub gain_db: f32,
     /// Lowest MIDI note accepted by the zone.
     pub key_min: u8,
     /// Highest MIDI note accepted by the zone.
@@ -594,6 +660,20 @@ pub struct SampleZoneDefinition {
     pub round_robin_group: Option<String>,
     /// Region and playback behavior.
     pub playback: SampleZonePlaybackDefinition,
+}
+
+const fn sample_pitch_tracking_default() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
+fn is_true(value: &bool) -> bool {
+    *value
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)] // Serde skip predicates receive a reference.
+fn is_zero(value: &f32) -> bool {
+    *value == 0.0
 }
 
 /// Playback region owned by one Sample Zone.
@@ -795,8 +875,29 @@ pub(super) fn validate_sample(
     diagnostics: &mut Vec<Diagnostic>,
     path: &str,
     sample: &SampleDefinition,
+    trigger_event: LayerTriggerEvent,
 ) {
     let sample_path = format!("{path}.generator.sample");
+    if sample.note_off_behavior == SampleNoteOffBehavior::Ignore
+        && trigger_event != LayerTriggerEvent::NoteOn
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "sample note_off_behavior ignore requires a note_on layer trigger",
+            )
+            .with_path(format!("{sample_path}.note_off_behavior")),
+        );
+    }
+    if let Some(normalize) = &sample.normalize {
+        validate_range(
+            diagnostics,
+            format!("{sample_path}.normalize.target_db"),
+            normalize.target_db,
+            -60.0..=0.0,
+            "normalization target_db must be finite and between -60 and 0 dBFS",
+        );
+    }
     if sample.zones.is_empty() {
         diagnostics.push(
             Diagnostic::error(
@@ -840,6 +941,13 @@ pub(super) fn validate_sample(
             );
         }
         validate_asset_reference(diagnostics, &zone_path, &zone.asset);
+        validate_range(
+            diagnostics,
+            format!("{zone_path}.gain_db"),
+            zone.gain_db,
+            -60.0..=12.0,
+            "sample zone gain_db must be finite and between -60 and 12 dB",
+        );
         if zone.root_note > 127 {
             diagnostics.push(
                 Diagnostic::error(
@@ -904,6 +1012,17 @@ pub(super) fn validate_sample(
             );
         }
         validate_sample_playback_definition(diagnostics, &zone_path, zone.playback);
+        if sample.note_off_behavior == SampleNoteOffBehavior::Ignore
+            && zone.playback.r#loop.is_some()
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample note_off_behavior ignore requires zones without loops",
+                )
+                .with_path(format!("{zone_path}.playback.loop")),
+            );
+        }
         if let Some(group) = &zone.round_robin_group {
             if !is_component_id(group) {
                 diagnostics.push(
@@ -929,6 +1048,41 @@ pub(super) fn validate_sample(
                         )
                         .with_path(format!("{zone_path}.round_robin_group")),
                     );
+                }
+            }
+        }
+    }
+
+    if let Some(normalize) = &sample.normalize {
+        match normalize.scope {
+            SampleNormalizationScope::Zone => {
+                if normalize.reference_zone.is_some() {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "reference_zone is only valid when normalization scope is layer",
+                        )
+                        .with_path(format!("{sample_path}.normalize.reference_zone")),
+                    );
+                }
+            }
+            SampleNormalizationScope::Layer => {
+                let reference_path = format!("{sample_path}.normalize.reference_zone");
+                match normalize.reference_zone.as_deref() {
+                    Some(reference_zone)
+                        if sample
+                            .zones
+                            .iter()
+                            .filter(|zone| zone.id == reference_zone)
+                            .count()
+                            == 1 => {}
+                    _ => diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "layer normalization requires a reference_zone that identifies one zone",
+                        )
+                        .with_path(reference_path),
+                    ),
                 }
             }
         }
@@ -2296,9 +2450,10 @@ mod tests {
         LayerTriggerDefinition, LayerTriggerEvent, NoiseColor, NoiseDefinition, OperatorAlgorithm,
         OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode,
         OscillatorDefinition, OscillatorWaveform, SampleDefinition, SampleInterpolation,
-        SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,
-        SampleTimeDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition,
-        WavetableDefinition,
+        SampleLoopDefinition, SampleNormalizationDefinition, SampleNormalizationMeasure,
+        SampleNormalizationScope, SampleNoteOffBehavior, SamplePlaybackDirection,
+        SampleRegionDefinition, SampleTimeDefinition, SampleZoneDefinition,
+        SampleZonePlaybackDefinition, UnisonDefinition, WavetableDefinition,
     };
     use crate::diagnostics::DiagnosticCode;
     use crate::{
@@ -2322,6 +2477,8 @@ mod tests {
                 sha256: None,
             },
             root_note: 60,
+            pitch_tracking: true,
+            gain_db: 0.0,
             key_min,
             key_max,
             velocity_min,
@@ -2346,9 +2503,123 @@ mod tests {
         let mut value = definition();
         value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
             interpolation: SampleInterpolation::Cubic,
+            note_off_behavior: SampleNoteOffBehavior::Release,
+            normalize: None,
             zones,
         });
         value
+    }
+
+    #[test]
+    fn sample_defaults_round_trip_and_invalid_normalization_is_reported_at_its_field() {
+        let mut value = sample_definition(vec![sample_zone(
+            "main",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: None,
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: None,
+                time: SampleTimeDefinition::Resample,
+            },
+        )]);
+        let json = serde_json::to_value(&value).expect("definition serializes");
+        let sample = &json["layers"][0]["generator"]["sample"];
+        assert!(sample.get("note_off_behavior").is_none());
+        assert!(sample.get("normalize").is_none());
+        let zone = &sample["zones"][0];
+        assert!(zone.get("pitch_tracking").is_none());
+        assert!(zone.get("gain_db").is_none());
+        assert_eq!(
+            serde_json::from_value::<InstrumentDefinition>(json).expect("defaults deserialize"),
+            value
+        );
+
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
+        };
+        sample.normalize = Some(SampleNormalizationDefinition {
+            scope: SampleNormalizationScope::Layer,
+            measure: SampleNormalizationMeasure::Peak,
+            target_db: f32::NAN,
+            reference_zone: None,
+        });
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ValueOutOfRange
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.normalize.target_db")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.normalize.reference_zone")
+        }));
+
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
+        };
+        let normalize = sample
+            .normalize
+            .as_mut()
+            .expect("normalization is configured");
+        normalize.scope = SampleNormalizationScope::Zone;
+        normalize.target_db = -6.0;
+        normalize.reference_zone = Some("main".to_owned());
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.normalize.reference_zone")
+        }));
+    }
+
+    #[test]
+    fn sample_one_shot_requires_note_on_and_unlooped_zones() {
+        let mut value = sample_definition(vec![sample_zone(
+            "hit",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: None,
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: 0.01,
+                    crossfade_seconds: 0.0,
+                }),
+                time: SampleTimeDefinition::Resample,
+            },
+        )]);
+        let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator else {
+            unreachable!();
+        };
+        sample.note_off_behavior = SampleNoteOffBehavior::Ignore;
+        value.layers[0].trigger.event = LayerTriggerEvent::NoteOff;
+
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.note_off_behavior")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop")
+        }));
     }
 
     fn operator_definition(
@@ -2664,6 +2935,8 @@ mod tests {
 
         value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
             interpolation: SampleInterpolation::Cubic,
+            note_off_behavior: SampleNoteOffBehavior::Release,
+            normalize: None,
             zones: vec![
                 sample_zone("a", 60, 60, 1, 127, None, one_shot),
                 sample_zone("b", 60, 60, 1, 127, None, one_shot),

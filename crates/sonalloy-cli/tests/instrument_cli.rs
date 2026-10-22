@@ -667,6 +667,23 @@ fn hybrid_validate_and_inspect_report_sample_layers() {
         .stdout(predicates::str::contains("\"sample_asset_count\":1"))
         .stdout(predicates::str::contains("\"sample_zones\""))
         .stdout(predicates::str::contains("\"playback_type\":\"one_shot\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            fixture_path("instruments/metallic-hybrid.json")
+                .to_str()
+                .expect("utf-8 definition path"),
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("note_off_behavior: release"))
+        .stdout(predicates::str::contains("normalization: disabled"))
+        .stdout(predicates::str::contains(
+            "pitch_tracking true gain_db 0.0 normalize_gain_db 0.0 effective_gain_db 0.0",
+        ));
 }
 
 #[test]
