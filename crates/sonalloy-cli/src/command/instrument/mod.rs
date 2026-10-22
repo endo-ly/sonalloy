@@ -22,7 +22,7 @@ mod sample;
 pub(super) enum InstrumentCommand {
     /// Create a starter Instrument Definition JSON file.
     #[command(
-        long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. The starter Definition is a 16-voice polyphonic Saw oscillator with one low-pass filter and no external audio input."
+        long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. With --from-sample, create a 16-voice instrument that plays the whole WAV with cubic interpolation and a 50 ms release. The WAV remains referenced using a relative path where possible. Without --from-sample, create a Saw oscillator with one low-pass filter."
     )]
     Init(InitArgs),
     /// Check one or more Definition JSON files and collect all diagnostics.
@@ -53,16 +53,22 @@ pub(super) struct InitArgs {
     /// Instrument name (defaults to the WAV filename).
     #[arg(long, requires = "from_sample")]
     name: Option<String>,
+    /// MIDI note represented by the sample (0..=127).
     #[arg(long, default_value_t = 60, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
     root_note: u8,
+    /// Lowest accepted MIDI note (0..=127; must not exceed --key-max).
     #[arg(long, default_value_t = 0, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
     key_min: u8,
+    /// Highest accepted MIDI note (0..=127).
     #[arg(long, default_value_t = 127, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
     key_max: u8,
+    /// Keep the original pitch regardless of the played MIDI note.
     #[arg(long, requires = "from_sample")]
     no_pitch_tracking: bool,
+    /// release: fade out on Note Off; ignore: play to the end of the sample.
     #[arg(long, default_value = "release", requires = "from_sample")]
     note_off_behavior: sample::NoteOff,
+    /// Emit machine-readable JSON with the output path.
     #[arg(long)]
     json: bool,
 }

@@ -49,63 +49,15 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 
 `id`は管理用ID、`preset`はScoreから参照する値です。説明と作者は元のメタデータがある場合に含まれます。検索はID、Score参照値、名前、説明、カテゴリ、タグに対する大文字小文字を区別しない部分一致で、結果はカテゴリと管理用IDの安定した順序を保ちます。該当なしは終了コード0で、`count: 0`と空の配列を返します。
 
-## 外部WAVの解析・索引・検索
+## SampleのJSON Report
 
-外部素材は、直接解析するか、フォルダごとの索引を保存して検索できます。選んだWAVからの音源定義生成まで、次の順に操作します。
-
-```bash
-sonalloy sample analyze ./samples/kick.wav './samples/**/*.wav' --json
-sonalloy sample index ./samples --output samples.index.json --analyze --json
-sonalloy sample search samples.index.json --query kick --max-duration 2 --json
-sonalloy instrument init kick.json --from-sample ./samples/kick.wav --no-pitch-tracking --note-off-behavior ignore --json
-```
-
-### WAVの直接解析
-
-`sample analyze`はファイル、再帰探索するフォルダ、Globを複数受け取り、正規化した絶対パスで重複を除きます。WAVを1ファイルずつデコードし、元のSample RateとChannel構成で[音響解析](#analysis)を実行します。`--reference-frequency`は既知の基準周波数を指定する場合に使います。
-
-JSONは`status`、`total`、`succeeded`、`failed`と`files[]`を返します。各ファイルは`path`、`status`、`analysis`、`diagnostics`を持ち、成功時の`analysis`はCoreの`AudioAnalysis`と同じ形式です。無音のPeak / RMSは0、dBFSやCentroidなど定義できない値は`null`です。非有限サンプルやデコード失敗はファイルごとの診断になります。全件成功は`ok`、一部失敗は`partial`、全件失敗は`error`で、失敗が1件でもあれば終了コード1です。
-
-### 索引の保存と更新
-
-`sample index <DIRECTORY> --output <INDEX.json>`は、WAVの基本情報をヘッダーから読み取ります。`--analyze`は音響解析結果も保存し、変更のない有効な解析キャッシュを再利用します。`--force`は基本情報とキャッシュを取り直します。解析結果を取り直す場合は`--analyze`も指定します。
-
-保存形式は`format: "sonalloy.sample-index"`、正規化済み絶対パスの`source_root`、相対パス順の`files[]`です。各レコードには次の情報が含まれます。
-
-| Field | 内容 |
+| コマンド | 主な出力 |
 |---|---|
-| `relative_path` | 入力フォルダからの相対パス |
-| `size_bytes`、`modified_time` | サイズと更新時刻。時刻はUnix Epochからの`seconds`と`nanoseconds` |
-| `audio` | `sample_rate`、`channels`、`bits_per_sample`、`frames`、`duration_seconds`。取得できない値は`null` |
-| `analysis_revision`、`analysis` | 解析キャッシュの識別子と`AudioAnalysis`。未解析は`null` |
-| `diagnostics` | ファイルごとの取得・解析エラー |
+| `sample analyze` | `total`、`succeeded`、`failed`、各入力の`path`・`analysis`・`diagnostics`を持つ`files[]` |
+| `sample index` | 絶対パスの`index`・`source_root`、`total_files`、`added`・`updated`・`unchanged`・`removed`・`analyzed`・`failed`、`diagnostics` |
+| `sample search` | `total_matches`、`returned`、`evaluated`、`unevaluated`、`complete`、各WAVの`path`・`source_index`・`analysis_status`・`analysis`を持つ`results[]` |
 
-サイズまたは更新時刻の変更でキャッシュを無効化し、削除済みファイルを除外します。フォルダへのシンボリックリンクは追跡せず、UTF-8で表現できないパスは診断します。走査失敗、不正な既存索引、入力フォルダの不一致では既存索引を保持します。個別WAVの失敗は取得済み情報と診断を保存し、残りを処理します。新しい索引は同一ファイルシステムの一時ファイルに書き、再読込を確認してから置き換えます。
-
-JSON Reportは絶対パスの`index`と`source_root`、`total_files`、`added`、`updated`、`unchanged`、`removed`、`analyzed`、`failed`、`diagnostics`を返します。追加・更新・変更なしはファイル情報の更新件数、`analyzed`は今回成功した解析件数です。ファイル単位の失敗に対する`status`と終了コードは直接解析と同じです。索引操作全体の失敗は終了コード2で共通のError Reportを返します。
-
-### 検索結果の評価
-
-`sample search <INDEX.json...>`は複数索引を横断し、名前、再生時間、Sample Rate、Channel数、Peak / RMS dBFS、Spectral Centroidの条件をANDで評価します。名前は相対パスに対する大文字小文字を区別しない部分一致です。同じWAVが複数索引にある場合は、いずれかの相対パスに一致すれば名前条件を満たします。範囲は上下限を含みます。使用できる条件は`--help`を参照してください。
-
-単独レコードの検索は保存済みの情報だけで完結します。同じ絶対パスのWAVを複数索引が参照する場合、名前条件を満たすWAVについて元ファイルのサイズ・更新時刻を1回確認し、現在の情報に合うレコード、有効な解析結果の順に優先して1件に統合します。採用候補の情報が競合し、検索条件で全候補の不一致を確定できない場合は診断を返します。結果は索引パス、WAV相対パスの順に並び、統合後に`--offset`と`--limit`を適用します。
-
-| Report Field | 内容 |
-|---|---|
-| `total_files`、`evaluated` | 重複統合後の総件数と一致・不一致を判定できた件数 |
-| `total_matches`、`returned` | 一致総数とページ内の返却件数 |
-| `unevaluated`、`complete` | 判定できない件数と、全レコードを判定できたか |
-| `results[]` | 絶対`path`、`source_index`、`relative_path`、`audio`、`analysis_status`、`analysis`、`diagnostics` |
-
-`analysis_status`は`analyzed`、`unanalyzed`、`stale`（解析方式が古い）、`failed`です。名前検索はどの状態も対象とします。音響解析が未実施・失敗・無効キャッシュの場合、必要な音響条件は評価不能です。解析済みで値が`null`の場合は、その数値条件に不一致となり、0への変換は行いません。各条件は一致・不一致・評価不能として評価し、1つでも不一致なら全体を不一致、すべて一致なら一致、それ以外は評価不能とします。`unevaluated`は全体の判定が評価不能の件数で、`complete`は`unevaluated == 0`です。検索結果は最後に索引化した状態を示すため、元ファイルを変更した場合は索引を更新してください。
-
-### 単一WAVからの音源定義生成
-
-`instrument init --from-sample`は1つのSample LayerとZoneを持つ16声の音源定義を生成します。既定のRoot Noteは60、Key Rangeは0〜127、Pitch Trackingは有効です。`--root-note`、`--key-min`、`--key-max`、`--no-pitch-tracking`で指定でき、音程やカテゴリは自動推定しません。名前はWAVの拡張子を除いたファイル名で、`--name`で指定できます。
-
-再生はCubic補間、WAV全体、Forward、Resample、Zone Gain 0 dBで、ADSRはAttack 0秒、Decay 0秒、Sustain 1、Release 0.05秒です。`--note-off-behavior release`はNote OffでReleaseに入り、`ignore`はサンプル終端まで再生します。
-
-Assetは音源定義からの相対パスで参照し、Windowsの異なるドライブなど相対パスを表現できない場合は絶対パスにします。保存前にWAVを読み込み、既存のCompile処理で定義とAssetを検証します。既存の生成先は保護します。`--json`の成功Reportは`status: "ok"`と`output`を返します。
+`analysis`の内容は[音響解析](#analysis)を参照してください。`analysis_status`は`analyzed`、`unanalyzed`、`stale`、`failed`です。`total_matches`はページング前の一致件数、`unevaluated`は判定できなかった件数で、`complete`は`unevaluated == 0`を示します。
 
 ## Instrumentの検証・解析Report
 
@@ -193,8 +145,6 @@ Eventは`absolute_frame`の昇順で記述し、同じFrameのEventも指定で�
 | `spectrum` | Hann窓STFTのCentroid、最大8局所Peak、条件に応じた基音・倍音情報 |
 | `spectrum.bands` | 7帯域ごとの上下限、平均二乗値、dBFS、全正周波数Powerに対する比率 |
 | `loudness` | Integrated LUFS、True Peak（dBTP）、LRA（LU）、Short-term LUFS |
-
-スペクトルはChannelごとのHann窓FFTからPowerを平均して求めるため、逆位相Stereoでもエネルギーを保持します。
 
 7帯域は20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzです。上限はNyquist周波数へ切り詰めます。使用できるFFT Binがない帯域の値は`null`です。
 

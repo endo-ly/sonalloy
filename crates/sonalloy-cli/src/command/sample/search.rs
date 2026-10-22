@@ -11,34 +11,49 @@ use crate::output::CliFailure;
 
 #[derive(Debug, Args)]
 pub(in crate::command) struct SearchArgs {
+    /// Saved sample index JSON files.
     #[arg(value_name = "INDEX", required = true, num_args = 1..)]
     indexes: Vec<PathBuf>,
+    /// Case-insensitive substring of any indexed relative path.
     #[arg(long)]
     query: Option<String>,
+    /// Minimum duration in seconds.
     #[arg(long, value_parser = super::super::parse_nonnegative_f64)]
     min_duration: Option<f64>,
+    /// Maximum duration in seconds.
     #[arg(long, value_parser = super::super::parse_nonnegative_f64)]
     max_duration: Option<f64>,
+    /// Exact sample rate in Hz.
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
     sample_rate: Option<u32>,
+    /// Exact channel count.
     #[arg(long, value_parser = super::super::parse_positive_usize)]
     channels: Option<usize>,
+    /// Minimum peak level in dBFS.
     #[arg(long, allow_hyphen_values = true, value_parser = finite_number)]
     min_peak_dbfs: Option<f64>,
+    /// Maximum peak level in dBFS.
     #[arg(long, allow_hyphen_values = true, value_parser = finite_number)]
     max_peak_dbfs: Option<f64>,
+    /// Minimum RMS level in dBFS.
     #[arg(long, allow_hyphen_values = true, value_parser = finite_number)]
     min_rms_dbfs: Option<f64>,
+    /// Maximum RMS level in dBFS.
     #[arg(long, allow_hyphen_values = true, value_parser = finite_number)]
     max_rms_dbfs: Option<f64>,
+    /// Minimum spectral centroid in Hz.
     #[arg(long, value_parser = super::super::parse_nonnegative_f64)]
     min_centroid_hz: Option<f64>,
+    /// Maximum spectral centroid in Hz.
     #[arg(long, value_parser = super::super::parse_nonnegative_f64)]
     max_centroid_hz: Option<f64>,
+    /// Maximum number of results after deduplication.
     #[arg(long, default_value_t = 100)]
     limit: usize,
+    /// Number of matches to skip after deduplication.
     #[arg(long, default_value_t = 0)]
     offset: usize,
+    /// Emit machine-readable JSON with results and evaluation counts.
     #[arg(long)]
     pub(super) json: bool,
 }

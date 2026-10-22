@@ -56,7 +56,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 |---|---|
 | プリセットを一覧・検索する | `sonalloy preset list` / `sonalloy preset list --query <text> --json` |
 | 音源定義のひな形を生成する | `sonalloy instrument init <path>` |
-| 外部WAVを直接解析する | `sonalloy sample analyze <WAV・フォルダ・Glob...> --json` |
+| 外部WAVを直接解析する | `sonalloy sample analyze <input...> --json` |
 | WAVフォルダを索引化する | `sonalloy sample index <folder> --output <index.json> --analyze --json` |
 | 保存した索引から素材を探す | `sonalloy sample search <index.json...> --query kick --json` |
 | WAVを楽器にする | `sonalloy instrument init <definition.json> --from-sample <sample.wav>` |
@@ -75,7 +75,7 @@ Optionと使い方は各コマンドの`--help`、JSON Report・解析・診断�
 
 ## 外部WAVを楽器にする
 
-手持ちのWAVフォルダを一度索引化すると、ファイル名、長さ、音量、明るさで素材を絞り込み、選んだWAVから音源定義を作成できます。
+WAVを検索し、選んだ素材を参照する音源定義を作成します。
 
 ```bash
 sonalloy sample index ./samples --output samples.index.json --analyze --json
@@ -84,7 +84,7 @@ sonalloy instrument init kick.json --from-sample ./samples/kick.wav --no-pitch-t
 sonalloy render note kick.json --output kick-preview.wav
 ```
 
-索引作成を再実行すると、サイズと更新時刻が変わったファイルだけを更新します。名前とファイル情報だけで探す場合は`--analyze`を省略できます。音響条件で検索したときの`unevaluated`は、未解析・解析失敗・無効なキャッシュにより判定できなかった件数です。解析済みで測定値が`null`の数値条件は不一致になります。選んだWAVは元の場所で参照されるため、音源定義とともに保持してください。
+生成した音源は元のWAVを参照します。
 
 ## アプリケーションへの組込み
 

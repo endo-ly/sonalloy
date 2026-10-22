@@ -18,35 +18,51 @@ mod search;
 #[derive(Debug, Subcommand)]
 pub(super) enum SampleCommand {
     /// Analyze WAV files, recursive directories, or glob patterns at their source sample rate.
+    #[command(
+        long_about = "Analyze WAV files, recursive directories, or glob patterns at their source sample rate. Duplicate paths are analyzed once. A failed input does not stop the remaining files; any failure gives exit code 1."
+    )]
     Analyze(AnalyzeArgs),
     /// Create or incrementally update a recursive WAV index.
+    #[command(
+        long_about = "Index WAV files recursively without following directory symlinks. Re-running updates added, changed, and removed files using size and modification time. An existing index must belong to the same directory. Individual WAV failures are recorded; traversal or index errors preserve the existing index."
+    )]
     Index(IndexArgs),
     /// Search saved indexes without decoding audio.
+    #[command(
+        long_about = "Search saved WAV indexes using AND conditions with inclusive bounds. Results reflect the last index update; re-run `sample index` after changing files.
+
+Each WAV is returned once, and name matching uses every indexed relative path. Unavailable analysis leaves acoustic conditions unevaluated; an analyzed null value is a non-match. Any non-match excludes the WAV. Conflicting records that could affect the result produce diagnostics. Results are ordered by index and relative path before pagination."
+    )]
     Search(search::SearchArgs),
 }
 
 #[derive(Debug, Args)]
 pub(super) struct AnalyzeArgs {
+    /// WAV file, directory, or glob pattern. Repeat for multiple inputs.
     #[arg(value_name = "INPUT", required = true, num_args = 1..)]
     inputs: Vec<String>,
     /// Known reference frequency for harmonic-energy analysis.
     #[arg(long, value_parser = reference_frequency)]
     reference_frequency: Option<f32>,
+    /// Emit machine-readable JSON with counts and diagnostics.
     #[arg(long)]
     json: bool,
 }
 
 #[derive(Debug, Args)]
 pub(super) struct IndexArgs {
+    /// Directory containing the WAV files.
     directory: PathBuf,
+    /// Index JSON to create or update.
     #[arg(long)]
     output: PathBuf,
     /// Decode audio and cache acoustic analysis as well as metadata.
     #[arg(long)]
     analyze: bool,
-    /// Refresh all metadata and analysis caches.
+    /// Refresh metadata and discard cached analysis; combine with --analyze to recompute it.
     #[arg(long)]
     force: bool,
+    /// Emit machine-readable JSON with counts and diagnostics.
     #[arg(long)]
     json: bool,
 }
