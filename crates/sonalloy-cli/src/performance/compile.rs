@@ -6,7 +6,8 @@ use sonalloy_core::{
     ScheduledEvent,
 };
 
-use super::{MusicalEvent, PerformanceEvents, validate};
+use super::validate;
+use crate::score::events::{MusicalEvent, PerformanceEvents};
 
 #[derive(Debug, Clone)]
 pub(crate) struct CompiledEvents {
@@ -552,13 +553,13 @@ mod tests {
         let mut pattern = default_pattern();
         pattern
             .tempo_changes
-            .push(crate::performance::events::TempoChange {
+            .push(crate::score::events::TempoChange {
                 tick: 480,
                 bpm: 60.0,
             });
         pattern
             .events
-            .push(crate::performance::events::MusicalEvent::ParameterRamp {
+            .push(crate::score::events::MusicalEvent::ParameterRamp {
                 tick: 240,
                 duration_ticks: 480,
                 parameter: "layer.body.gain".to_owned(),
@@ -597,7 +598,7 @@ mod tests {
         pattern.events.pop();
         pattern
             .events
-            .push(crate::performance::events::MusicalEvent::ParameterRamp {
+            .push(crate::score::events::MusicalEvent::ParameterRamp {
                 tick: 0,
                 duration_ticks: 1,
                 parameter: "layer.body.gain".to_owned(),

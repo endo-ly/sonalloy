@@ -481,8 +481,7 @@ impl Builder<'_> {
         if !(0..=127).contains(&note)
             || duration <= q(0, 1)
             || !gain.is_finite()
-            || crate::performance::gain_linear(gain)
-                .is_none_or(|linear| linear > f64::from(f32::MAX))
+            || super::gain_linear(gain).is_none_or(|linear| linear > f64::from(f32::MAX))
         {
             return Err(Error::new(
                 path,

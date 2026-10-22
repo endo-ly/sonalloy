@@ -12,7 +12,8 @@ use crate::midi::{
     MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, denormalize_control, denormalize_pitch_bend,
     normalize_control, normalize_pitch_bend, tempo_to_microseconds_per_beat,
 };
-use crate::performance::events::{MusicalEvent, PerformanceEvents, TempoChange, validate};
+use crate::performance::events::validate;
+use crate::score::events::{MusicalEvent, PerformanceEvents, TempoChange};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum PerformanceMidiEventKind {

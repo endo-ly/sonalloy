@@ -1,3 +1,4 @@
+pub(crate) mod events;
 mod lower;
 mod parse;
 mod resolve;
@@ -5,14 +6,13 @@ mod syntax;
 mod time;
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use num_traits::ToPrimitive;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::output::CliFailure;
-use crate::performance::events::{MeterChange, MusicalEvent, PerformanceEvents, TempoChange};
+use events::{MeterChange, MusicalEvent, PerformanceEvents, TempoChange};
 use time::q;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -28,11 +28,13 @@ struct ErrorContext {
     source_bar: Option<usize>,
 }
 
+/// A score parsing or expansion error with its resolved source details.
 #[derive(Debug, thiserror::Error)]
 #[error("{path}: {message}")]
-struct Error {
-    path: String,
-    message: String,
+pub(crate) struct Error {
+    pub(crate) path: String,
+    pub(crate) message: String,
+    pub(crate) detail: Box<Value>,
     line: usize,
     column: usize,
     actual: Option<Box<Value>>,
@@ -42,6 +44,7 @@ struct Error {
 impl Error {
     fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
+            detail: Box::new(Value::Null),
             path: path.into(),
             message: message.into(),
             line: 0,
@@ -88,7 +91,7 @@ impl Error {
             .as_mut()
             .and_then(|context| context.score_position.take())
     }
-    fn failure(mut self, source: &Source) -> CliFailure {
+    fn locate(mut self, source: &Source) -> Self {
         if let Some((offset, token)) = self
             .context
             .as_deref()
@@ -168,7 +171,10 @@ impl Error {
             .context
             .as_deref()
             .and_then(|context| context.occurrence);
-        CliFailure { code: 1, diagnostics: vec![sonalloy_core::Diagnostic::error(sonalloy_core::DiagnosticCode::DefinitionError, &self.message).with_path(&self.path).with_detail(serde_json::json!({"source_type":"score","source_bar":source_bar,"bar":bar,"step":step,"line":self.line,"column":self.column,"actual":self.actual,"expected":self.message,"section":section,"occurrence":occurrence}).to_string())] }
+        self.detail = Box::new(
+            serde_json::json!({"source_type":"score","source_bar":source_bar,"bar":bar,"step":step,"line":self.line,"column":self.column,"actual":self.actual,"expected":self.message,"section":section,"occurrence":occurrence}),
+        );
+        self
     }
 }
 
@@ -283,57 +289,48 @@ pub(crate) struct PartWindow {
 }
 
 impl ScorePlan {
-    pub(crate) fn annotate_diagnostics(&self, diagnostics: &mut [sonalloy_core::Diagnostic]) {
-        for diagnostic in diagnostics {
-            if diagnostic.detail.is_none() {
-                if let Some(path) = diagnostic.path.as_deref() {
-                    if path.starts_with("instruments.") || path.starts_with("meta.") {
-                        diagnostic.detail = Error::new(path, &diagnostic.message)
-                            .failure(&self.source)
-                            .diagnostics
-                            .remove(0)
-                            .detail;
-                    }
-                }
-            }
-        }
+    /// Resolve source metadata for a diagnostic at a score field path.
+    pub(crate) fn source_detail(&self, path: &str, message: &str) -> Value {
+        *Error::new(path, message).locate(&self.source).detail
     }
 }
 
-#[derive(Debug, Clone, Default, clap::Args)]
-pub(crate) struct Bindings {
-    /// Preset root; takes precedence over `SONALLOY_PRESET_ROOT` and Score-relative presets/.
-    #[arg(long, value_name = "DIRECTORY")]
-    pub(crate) preset_root: Option<PathBuf>,
-    /// Bind an `external: true` instrument as ID=DEFINITION; repeat for each. Fixed instruments,
-    /// unknown IDs, and duplicate bindings are rejected.
-    #[arg(long = "bind", value_name = "ID=DEFINITION")]
-    pub(crate) bind: Vec<String>,
+/// Distinguishes file access failures from errors in the score itself.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ReadError {
+    #[error("could not read score: {path}: {source}")]
+    Io {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
+    #[error(transparent)]
+    Parse(#[from] Error),
 }
 
-pub(crate) fn read(path: &Path) -> std::result::Result<ScorePlan, CliFailure> {
-    let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
-        code: 2,
-        diagnostics: vec![
-            sonalloy_core::Diagnostic::error(
-                sonalloy_core::DiagnosticCode::DefinitionError,
-                "could not read score",
-            )
-            .with_path(path.to_string_lossy())
-            .with_detail(error.to_string()),
-        ],
+/// Read and expand a Score YAML file.
+///
+/// # Errors
+/// Returns a file access error or a source-located score error.
+pub(crate) fn read(path: &Path) -> std::result::Result<ScorePlan, ReadError> {
+    let text = std::fs::read_to_string(path).map_err(|source| ReadError::Io {
+        path: path.to_owned(),
+        source,
     })?;
-    compile(&text)
+    Ok(compile(&text)?)
 }
 
-pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> {
+/// Parse, validate, and expand Score YAML into a musical plan.
+///
+/// # Errors
+/// Returns a source-located error for invalid syntax, structure, or musical content.
+pub(crate) fn compile(text: &str) -> Result<ScorePlan> {
     let mut source = Source::default();
     let result = parse::parse(text, &mut source).and_then(|document| {
         resolve::validate_structure(&document)?;
         lower::lower(&document)
     });
     result
-        .map_err(|error| error.failure(&source))
+        .map_err(|error| error.locate(&source))
         .map(|mut plan| {
             for lane in &mut plan.lanes {
                 for origin in &mut lane.sources {
@@ -404,6 +401,15 @@ pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> 
         })
 }
 
+/// Convert finite decibels to a finite linear gain, returning `None` on overflow.
+pub(crate) fn gain_linear(gain_db: f64) -> Option<f64> {
+    if !gain_db.is_finite() {
+        return None;
+    }
+    let gain = 10.0_f64.powf(gain_db / 20.0);
+    gain.is_finite().then_some(gain)
+}
+
 fn object<'a>(v: &'a Value, path: &str) -> Result<&'a serde_json::Map<String, Value>> {
     v.as_object()
         .ok_or_else(|| Error::new(path, "expected a mapping"))
@@ -456,8 +462,12 @@ fn fields(v: &Value, allowed: &[&str], path: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn tonic_pitch(text: &str) -> std::result::Result<i32, CliFailure> {
-    syntax::tonic(text).map_err(|e| e.failure(&Source::default()))
+/// Resolve a tonic spelling to its pitch class.
+///
+/// # Errors
+/// Returns a score error when the tonic spelling is invalid.
+pub(crate) fn tonic_pitch(text: &str) -> Result<i32> {
+    syntax::tonic(text).map_err(|e| e.locate(&Source::default()))
 }
 
 pub(crate) fn to_yaml(
@@ -599,14 +609,8 @@ mod tests {
         ];
         for (text, path) in cases {
             let error = super::compile(&text).expect_err("invalid score");
-            assert_eq!(error.diagnostics[0].path.as_deref(), Some(path));
-            let detail: serde_json::Value = serde_json::from_str(
-                error.diagnostics[0]
-                    .detail
-                    .as_deref()
-                    .expect("source detail"),
-            )
-            .expect("structured source");
+            assert_eq!(error.path, path);
+            let detail = &error.detail;
             assert!(detail["line"].as_u64().expect("line") > 0);
             assert!(detail["column"].as_u64().expect("column") > 0);
         }
@@ -625,11 +629,8 @@ mod tests {
             let text = format!("# 日本語のコメント\n{yaml}");
             let expected_token = text.find(". - - -").expect("quoted tie token") + 2;
             let error = super::compile(&text).expect_err("unmatched tie fails");
-            let diagnostic = &error.diagnostics[0];
-            assert_eq!(diagnostic.path.as_deref(), Some(source_path));
-            let detail: serde_json::Value =
-                serde_json::from_str(diagnostic.detail.as_deref().expect("source detail"))
-                    .expect("structured source detail");
+            assert_eq!(error.path, source_path);
+            let detail = &error.detail;
             let before = &text[..expected_token];
             assert_eq!(
                 detail["line"],
@@ -679,7 +680,7 @@ mod tests {
         let mut missing_note = document();
         missing_note["sections"]["phrase"] = serde_json::json!({"events":[{"kind":"hit","instrument":"part","at":{"bar":1,"step":1}}]});
         let error = super::compile(&missing_note.to_string()).expect_err("trigger note required");
-        let message = &error.diagnostics[0].message;
+        let message = &error.message;
         assert!(message.contains("instruments.part.trigger_note_midi"));
         assert!(message.contains("score quarter 0"));
 
@@ -716,16 +717,12 @@ mod tests {
             {"kind":"step_roll","instrument":"part","bar":1,"from_step":1,"through_step":1,"velocity_from":100,"velocity_to":100}
         ]);
         let error = super::compile(&doc.to_string()).expect_err("overlapping rolls rejected");
-        assert!(
-            error.diagnostics[0]
-                .message
-                .contains("overlapping drum rolls")
-        );
+        assert!(error.message.contains("overlapping drum rolls"));
     }
 
     #[test]
     fn audition_scores_preserve_the_complete_event_sequences() {
-        use crate::performance::events::MusicalEvent;
+        use super::events::MusicalEvent;
         use sha2::{Digest, Sha256};
         use std::fmt::Write;
         let snapshots: Vec<serde_json::Value> = serde_json::from_str(include_str!(
@@ -816,10 +813,7 @@ mod tests {
         let mut doc = document();
         doc["instruments"]["part"]["pan"] = serde_json::json!(2);
         let error = super::compile(&doc.to_string()).expect_err("pan out of range");
-        assert_eq!(
-            error.diagnostics[0].path.as_deref(),
-            Some("instruments.part.pan")
-        );
+        assert_eq!(error.path, "instruments.part.pan");
         doc["instruments"]["part"]["pan"] = serde_json::json!("left");
         assert!(super::compile(&doc.to_string()).is_err());
         doc["instruments"]["part"]["pan"] = serde_json::json!(-1);
@@ -877,18 +871,12 @@ mod tests {
         invalid["sections"]["solo"]["add_placements"] =
             serde_json::json!([{"instrument":"part","degree":"9","at":{"bar":1,"step":1}}]);
         let error = super::compile(&invalid.to_string()).expect_err("invalid placement");
-        assert_eq!(
-            error.diagnostics[0].path.as_deref(),
-            Some("sections.solo.add_placements[0]")
-        );
+        assert_eq!(error.path, "sections.solo.add_placements[0]");
         let mut invalid = doc.clone();
         invalid["sections"]["phrase"]["placements"] =
             serde_json::json!([{"instrument":"part","degree":"9","at":{"bar":1,"step":1}}]);
         let error = super::compile(&invalid.to_string()).expect_err("inherited placement");
-        assert_eq!(
-            error.diagnostics[0].path.as_deref(),
-            Some("sections.phrase.placements[0]")
-        );
+        assert_eq!(error.path, "sections.phrase.placements[0]");
     }
 
     #[test]
@@ -912,7 +900,7 @@ mod tests {
         );
         doc["form"][0]["scale"] = serde_json::json!("mystery");
         let error = super::compile(&doc.to_string()).expect_err("unknown scale");
-        assert_eq!(error.diagnostics[0].path.as_deref(), Some("form[0].scale"));
+        assert_eq!(error.path, "form[0].scale");
     }
 
     #[test]
@@ -948,10 +936,7 @@ mod tests {
         doc["arps"]["up"]["retrigger_each_step"] = serde_json::json!(true);
         doc["arps"]["up"]["order"] = serde_json::json!("- 1 . . | . . . .");
         let error = super::compile(&doc.to_string()).expect_err("tie without a note");
-        assert_eq!(
-            error.diagnostics[0].path.as_deref(),
-            Some("sections.phrase.arp")
-        );
+        assert_eq!(error.path, "sections.phrase.arp");
     }
 
     #[test]

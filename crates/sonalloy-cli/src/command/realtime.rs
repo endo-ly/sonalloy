@@ -76,7 +76,7 @@ pub(super) struct AuditionScoreArgs {
     /// Score YAML path.
     pub(crate) score: PathBuf,
     #[command(flatten)]
-    pub(crate) bindings: crate::score::Bindings,
+    pub(crate) bindings: crate::performance::InstrumentBindings,
     /// Instrument to audition; required for a score with several instruments.
     #[arg(long)]
     pub(crate) part: Option<String>,
@@ -327,7 +327,7 @@ fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
                 if pattern
                     .events
                     .iter()
-                    .any(crate::performance::events::MusicalEvent::is_note)
+                    .any(crate::score::events::MusicalEvent::is_note)
                     || compiled.required_input_channels() > 0
                 {
                     lanes.push((pattern, lane.gain_db));

@@ -46,6 +46,35 @@ pub(crate) struct CliFailure {
     pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
+impl From<crate::score::Error> for CliFailure {
+    fn from(error: crate::score::Error) -> Self {
+        Self {
+            code: 1,
+            diagnostics: vec![
+                Diagnostic::error(DiagnosticCode::DefinitionError, &error.message)
+                    .with_path(error.path)
+                    .with_detail(error.detail.to_string()),
+            ],
+        }
+    }
+}
+
+impl From<crate::score::ReadError> for CliFailure {
+    fn from(error: crate::score::ReadError) -> Self {
+        match error {
+            crate::score::ReadError::Parse(error) => error.into(),
+            crate::score::ReadError::Io { path, source } => Self {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(DiagnosticCode::DefinitionError, "could not read score")
+                        .with_path(path.to_string_lossy())
+                        .with_detail(source.to_string()),
+                ],
+            },
+        }
+    }
+}
+
 pub(crate) fn pending_wav(path: &Path) -> Result<tempfile::TempPath, CliFailure> {
     let parent = path
         .parent()

@@ -5,8 +5,8 @@ use midly::{Format, Header, MetaMessage, Smf, Timing, TrackEvent, TrackEventKind
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
 use crate::midi::pattern::{build_track, conductor_events, midi_events, midi_export_events};
-use crate::performance::events::{MusicalEvent, PerformanceEvents};
 use crate::performance::{PartLane, PerformancePlan};
+use crate::score::events::{MusicalEvent, PerformanceEvents};
 
 pub(crate) fn export_score(
     path: &Path,
@@ -205,7 +205,7 @@ fn merge_lanes(part: &PartLane, diagnostics: &mut Vec<Diagnostic>) -> Performanc
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::score::Bindings;
+    use crate::performance::InstrumentBindings;
     use serde_json::json;
 
     #[test]
@@ -224,7 +224,8 @@ mod tests {
                     {"kind":"mod_wheel","instrument":"part","at":{"bar":1,"step":2},"value":0.5},
                     {"kind":"part_window","instrument":"part","bars":[1,1]}]}}});
         std::fs::write(&path, doc.to_string()).unwrap();
-        let mut plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
+        let mut plan =
+            crate::performance::load(&path, &InstrumentBindings::default(), 48000, 257).unwrap();
         let part = &mut plan.parts[0];
         let controls: Vec<_> = part.render_lanes[0]
             .pattern
@@ -325,7 +326,8 @@ mod tests {
         let output = directory.path().join("out.mid");
 
         std::fs::write(&path, score(-6.0).to_string()).unwrap();
-        let plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
+        let plan =
+            crate::performance::load(&path, &InstrumentBindings::default(), 48000, 257).unwrap();
         let diagnostics = export_score(&output, &plan).unwrap();
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(
@@ -341,7 +343,8 @@ mod tests {
         );
 
         std::fs::write(&path, score(0.0).to_string()).unwrap();
-        let plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
+        let plan =
+            crate::performance::load(&path, &InstrumentBindings::default(), 48000, 257).unwrap();
         assert_eq!(export_score(&output, &plan).unwrap(), [] as [Diagnostic; 0]);
     }
 }

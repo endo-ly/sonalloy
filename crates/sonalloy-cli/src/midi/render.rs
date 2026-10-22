@@ -9,7 +9,7 @@ use crate::midi::parse::{RawMidiEventKind, RawMidiTempoChange, RawMidiTimeSignat
 use crate::midi::parse_midi;
 use crate::midi::{normalize_control, normalize_pitch_bend, note_id};
 use crate::musical_time::{TempoPoint, TimeSignaturePoint, build_musical_time_map, tick_to_frame};
-use crate::performance::events::MeterChange;
+use crate::score::events::MeterChange;
 
 pub(crate) struct MidiRender {
     pub(crate) events: Vec<ScheduledEvent>,
