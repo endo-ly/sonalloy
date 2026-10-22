@@ -1,10 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::process::ProcessError;
 use crate::render::RenderError;
 
 /// Severity of a diagnostic returned to a frontend.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DiagnosticSeverity {
     /// The requested operation cannot succeed.
     #[serde(rename = "error")]
@@ -18,7 +18,7 @@ pub enum DiagnosticSeverity {
 }
 
 /// Stable diagnostic categories used by CLI and adapters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DiagnosticCode {
     /// The Definition schema version is not supported.
     #[serde(rename = "SCHEMA_UNSUPPORTED")]
@@ -167,7 +167,7 @@ pub enum DiagnosticCode {
 }
 
 /// Position and Score context attached to a diagnostic.
-#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct DiagnosticContext {
     /// Part identifier associated with a render failure.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -190,7 +190,7 @@ pub struct DiagnosticContext {
 }
 
 /// A structured, frontend-neutral diagnostic.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Diagnostic {
     /// Stable machine-readable category.
     pub code: DiagnosticCode,

@@ -56,6 +56,10 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 |---|---|
 | プリセットを一覧・検索する | `sonalloy preset list` / `sonalloy preset list --query <text> --json` |
 | 音源定義のひな形を生成する | `sonalloy instrument init <path>` |
+| 外部WAVを直接解析する | `sonalloy sample analyze <input...> --json` |
+| WAVフォルダを索引化する | `sonalloy sample index <folder> --output <index.json> --analyze --json` |
+| 保存した索引から素材を探す | `sonalloy sample search <index.json...> --query kick --json` |
+| WAVを楽器にする | `sonalloy instrument init <definition.json> --from-sample <sample.wav>` |
 | 定義を検証する | `sonalloy instrument validate <definition>` |
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
 | 1音 / Event列 / MIDIをレンダリングする | `sonalloy render note` / `events` / `midi` |
@@ -68,6 +72,19 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 楽曲と試奏は[Score YAML](.agents/skills/create-instrument/references/score_spec.md)で記述します。音源はInstrument Definition JSONで参照し、同じ演奏からWAV・Stem・MIDIを生成できます。
 
 Optionと使い方は各コマンドの`--help`、JSON Report・解析・診断の詳細は[CLI詳細仕様](.agents/skills/create-instrument/references/cli.md)を参照してください。`preset list`は音源のメタデータを表示し、Scoreの演奏・レンダリングにはPreset Definitionと必要なAssetが必要です。
+
+## 外部WAVを楽器にする
+
+WAVを検索し、選んだ素材を参照する音源定義を作成します。
+
+```bash
+sonalloy sample index ./samples --output samples.index.json --analyze --json
+sonalloy sample search samples.index.json --query kick --max-duration 2 --json
+sonalloy instrument init kick.json --from-sample ./samples/kick.wav --no-pitch-tracking --note-off-behavior ignore
+sonalloy render note kick.json --output kick-preview.wav
+```
+
+生成した音源は元のWAVを参照します。
 
 ## アプリケーションへの組込み
 

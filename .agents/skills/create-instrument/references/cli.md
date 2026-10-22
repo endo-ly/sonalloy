@@ -49,6 +49,16 @@ Clapによる引数構文や値のエラーは標準エラーへ表示され、�
 
 `id`は管理用ID、`preset`はScoreから参照する値です。説明と作者は元のメタデータがある場合に含まれます。検索はID、Score参照値、名前、説明、カテゴリ、タグに対する大文字小文字を区別しない部分一致で、結果はカテゴリと管理用IDの安定した順序を保ちます。該当なしは終了コード0で、`count: 0`と空の配列を返します。
 
+## SampleのJSON Report
+
+| コマンド | 主な出力 |
+|---|---|
+| `sample analyze` | `total`、`succeeded`、`failed`、各入力の`path`・`analysis`・`diagnostics`を持つ`files[]` |
+| `sample index` | 絶対パスの`index`・`source_root`、`total_files`、`added`・`updated`・`unchanged`・`removed`・`analyzed`・`failed`、`diagnostics` |
+| `sample search` | `total_matches`、`returned`、`evaluated`、`unevaluated`、`complete`、各WAVの`path`・`source_index`・`analysis_status`・`analysis`を持つ`results[]` |
+
+`analysis`の内容は[音響解析](#analysis)を参照してください。`analysis_status`は`analyzed`、`unanalyzed`、`stale`、`failed`です。`total_matches`はページング前の一致件数、`unevaluated`は判定できなかった件数で、`complete`は`unevaluated == 0`を示します。
+
 ## Instrumentの検証・解析Report
 
 ### Definitionの一括検証

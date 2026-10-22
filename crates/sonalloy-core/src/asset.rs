@@ -8,9 +8,9 @@ use rubato::{
 };
 use sha2::{Digest, Sha256};
 use symphonia::core::audio::sample::SampleFormat;
-use symphonia::core::codecs::audio::AudioDecoderOptions;
+use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoderOptions};
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::{FormatOptions, TrackType, probe::Hint};
+use symphonia::core::formats::{FormatOptions, FormatReader, TrackType, probe::Hint};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use thiserror::Error;
@@ -149,6 +149,54 @@ pub fn prepare_audio_file(
     Ok((*prepared.audio).clone())
 }
 
+/// Source WAV properties obtained without decoding audio packets.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct AudioFileMetadata {
+    /// Original sample rate.
+    pub sample_rate: u32,
+    /// Original channel count.
+    pub channels: usize,
+    /// Bit depth reported by the container.
+    pub bits_per_sample: Option<u32>,
+    /// Exact frame count when supplied by the container.
+    pub frames: Option<u64>,
+    /// Duration derived from the exact frame count, when available.
+    pub duration_seconds: Option<f64>,
+}
+
+/// Read WAV metadata without decoding samples or computing a file hash.
+///
+/// # Errors
+/// Returns an error for unreadable files or unsupported WAV encodings.
+pub fn read_audio_file_metadata(path: &Path) -> Result<AudioFileMetadata, AudioFileError> {
+    open_wav(path)
+        .map(|source| source.metadata)
+        .map_err(|error| AudioFileError::Preparation(error.to_string()))
+}
+
+/// Decode a WAV at its original sample rate and channel layout.
+///
+/// # Errors
+/// Returns an error for unreadable, unsupported, empty, or non-finite WAV data.
+pub fn read_audio_file(path: &Path) -> Result<crate::RenderedAudio, AudioFileError> {
+    let decoded =
+        decode_wav(path).map_err(|error| AudioFileError::Preparation(error.to_string()))?;
+    Ok(crate::RenderedAudio {
+        sample_rate: decoded.sample_rate,
+        channels: (0..decoded.channels)
+            .map(|channel| {
+                decoded
+                    .samples
+                    .iter()
+                    .skip(channel)
+                    .step_by(decoded.channels)
+                    .copied()
+                    .collect()
+            })
+            .collect(),
+    })
+}
+
 /// Result of resolving and preparing one asset.
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedAsset {
@@ -256,22 +304,7 @@ pub(crate) fn load_audio(
             decoded.channels
         )));
     }
-    let source_frames = decoded
-        .samples
-        .len()
-        .checked_div(decoded.channels)
-        .filter(|frames| *frames > 0)
-        .ok_or_else(|| AssetError::Decode("decoded WAV contains no frames".to_owned()))?;
-    if decoded.samples.len() != source_frames * decoded.channels {
-        return Err(AssetError::Decode(
-            "decoded WAV has an incomplete final frame".to_owned(),
-        ));
-    }
-    if !decoded.samples.iter().all(|sample| sample.is_finite()) {
-        return Err(AssetError::Decode(
-            "decoded WAV contains a non-finite sample".to_owned(),
-        ));
-    }
+    let source_frames = decoded.samples.len() / decoded.channels;
 
     Ok(DecodedAudioAsset {
         sample_rate: decoded.sample_rate,
@@ -383,8 +416,15 @@ struct DecodedAudio {
     samples: Vec<f32>,
 }
 
-#[allow(clippy::too_many_lines)]
-fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
+struct WavSource {
+    format: Box<dyn FormatReader>,
+    track_id: u32,
+    parameters: AudioCodecParameters,
+    metadata: AudioFileMetadata,
+}
+
+#[allow(clippy::too_many_lines, clippy::cast_precision_loss)]
+fn open_wav(path: &Path) -> Result<WavSource, AssetError> {
     let source =
         std::fs::File::open(path).map_err(|error| AssetError::NotFound(error.to_string()))?;
     let stream = MediaSourceStream::new(
@@ -403,8 +443,8 @@ fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
             MetadataOptions::default(),
         )
         .map_err(|error| AssetError::Decode(error.to_string()))?;
-    let mut format = probe;
-    let (track_id, codec_params) = {
+    let format = probe;
+    let (track_id, codec_params, frames) = {
         let track = format
             .default_track(TrackType::Audio)
             .ok_or_else(|| AssetError::Decode("WAV has no audio track".to_owned()))?;
@@ -414,6 +454,7 @@ fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
                 .codec_params
                 .clone()
                 .ok_or_else(|| AssetError::Decode("WAV codec parameters are missing".to_owned()))?,
+            track.num_frames,
         )
     };
     let audio_params = codec_params
@@ -456,10 +497,34 @@ fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
         }
     }
 
+    Ok(WavSource {
+        format,
+        track_id,
+        parameters: audio_params.clone(),
+        metadata: AudioFileMetadata {
+            sample_rate,
+            channels,
+            bits_per_sample: audio_params.bits_per_sample,
+            frames,
+            duration_seconds: frames.map(|frames| frames as f64 / f64::from(sample_rate)),
+        },
+    })
+}
+
+fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
+    let WavSource {
+        mut format,
+        track_id,
+        parameters,
+        metadata,
+    } = open_wav(path)?;
+    let audio_params = &parameters;
+    let sample_rate = metadata.sample_rate;
+    let channels = metadata.channels;
     let mut codec_decoder = symphonia::default::get_codecs()
         .make_audio_decoder(audio_params, &AudioDecoderOptions::default())
         .map_err(|error| AssetError::Decode(error.to_string()))?;
-    let mut samples = Vec::new();
+    let mut samples = Vec::<f32>::new();
     loop {
         let packet = match format.next_packet() {
             Ok(Some(packet)) => packet,
@@ -480,6 +545,21 @@ fn decode_wav(path: &Path) -> Result<DecodedAudio, AssetError> {
         let mut packet_samples_f32 = Vec::new();
         packet_samples.copy_to_vec_interleaved(&mut packet_samples_f32);
         samples.extend_from_slice(&packet_samples_f32);
+    }
+    let source_frames = samples
+        .len()
+        .checked_div(channels)
+        .filter(|frames| *frames > 0)
+        .ok_or_else(|| AssetError::Decode("decoded WAV contains no frames".to_owned()))?;
+    if samples.len() != source_frames * channels {
+        return Err(AssetError::Decode(
+            "decoded WAV has an incomplete final frame".to_owned(),
+        ));
+    }
+    if !samples.iter().all(|sample| sample.is_finite()) {
+        return Err(AssetError::Decode(
+            "decoded WAV contains a non-finite sample".to_owned(),
+        ));
     }
     Ok(DecodedAudio {
         sample_rate,

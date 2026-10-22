@@ -11,17 +11,18 @@ use sonalloy_core::{
     PerformanceDefinition, ProcessorDefinition, VoiceStealingDefinition,
 };
 
-use crate::output::{CliFailure, print_diagnostics, print_failure, print_warnings};
+use crate::output::{print_diagnostics, print_failure, print_warnings};
 
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 
 mod inspect;
+mod sample;
 
 #[derive(Debug, Subcommand)]
 pub(super) enum InstrumentCommand {
     /// Create a starter Instrument Definition JSON file.
     #[command(
-        long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. The starter Definition is a 16-voice polyphonic Saw oscillator with one low-pass filter and no external audio input."
+        long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. With --from-sample, create a 16-voice instrument that plays the whole WAV with cubic interpolation and a 50 ms release. The WAV remains referenced using a relative path where possible. Without --from-sample, create a Saw oscillator with one low-pass filter."
     )]
     Init(InitArgs),
     /// Check one or more Definition JSON files and collect all diagnostics.
@@ -46,6 +47,30 @@ pub(super) struct InitArgs {
     /// Destination Definition path.
     #[arg(value_name = "PATH")]
     path: PathBuf,
+    /// Create a one-zone Sample instrument from this WAV.
+    #[arg(long, value_name = "WAV")]
+    from_sample: Option<PathBuf>,
+    /// Instrument name (defaults to the WAV filename).
+    #[arg(long, requires = "from_sample")]
+    name: Option<String>,
+    /// MIDI note represented by the sample (0..=127).
+    #[arg(long, default_value_t = 60, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
+    root_note: u8,
+    /// Lowest accepted MIDI note (0..=127; must not exceed --key-max).
+    #[arg(long, default_value_t = 0, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
+    key_min: u8,
+    /// Highest accepted MIDI note (0..=127).
+    #[arg(long, default_value_t = 127, requires = "from_sample", value_parser = clap::value_parser!(u8).range(0..=127))]
+    key_max: u8,
+    /// Keep the original pitch regardless of the played MIDI note.
+    #[arg(long, requires = "from_sample")]
+    no_pitch_tracking: bool,
+    /// release: fade out on Note Off; ignore: play to the end of the sample.
+    #[arg(long, default_value = "release", requires = "from_sample")]
+    note_off_behavior: sample::NoteOff,
+    /// Emit machine-readable JSON with the output path.
+    #[arg(long)]
+    json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -105,57 +130,20 @@ pub(super) fn run(command: InstrumentCommand) -> ExitCode {
     }
 }
 fn run_init(args: &InitArgs) -> ExitCode {
-    if args.path.exists() {
-        print_failure(
-            false,
-            &CliFailure {
-                code: 2,
-                diagnostics: vec![
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "destination already exists",
-                    )
-                    .with_path(args.path.to_string_lossy()),
-                ],
-            },
-        );
-        return ExitCode::from(2);
-    }
-    let json = match serde_json::to_string_pretty(&default_definition()) {
-        Ok(json) => json,
-        Err(error) => {
-            print_failure(
-                false,
-                &CliFailure {
-                    code: 4,
-                    diagnostics: vec![
-                        Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "could not serialize default Definition",
-                        )
-                        .with_detail(error.to_string()),
-                    ],
-                },
-            );
-            return ExitCode::from(4);
+    match sample::initialize(args) {
+        Ok(()) => {
+            if args.json {
+                println!(
+                    "{}",
+                    serde_json::json!({"status": "ok", "output": args.path})
+                );
+            } else {
+                println!("created {}", args.path.display());
+            }
+            ExitCode::SUCCESS
         }
-    };
-    if let Err(error) = std::fs::write(&args.path, format!("{json}\n")) {
-        print_failure(
-            false,
-            &CliFailure {
-                code: 4,
-                diagnostics: vec![
-                    Diagnostic::error(DiagnosticCode::WavOutputError, "could not write Definition")
-                        .with_path(args.path.to_string_lossy())
-                        .with_detail(error.to_string()),
-                ],
-            },
-        );
-        return ExitCode::from(4);
+        Err(error) => crate::output::finish_failure(args.json, error),
     }
-    println!("created {}", args.path.display());
-    ExitCode::SUCCESS
 }
 
 #[derive(Debug, Serialize)]
