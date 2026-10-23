@@ -1,7 +1,7 @@
 use crate::output::{CliFailure, finish_failure, print_warnings};
-use crate::performance::events::{MusicalEvent, PerformanceEvents};
+use crate::performance::InstrumentBindings;
 use crate::performance::{self, PerformancePlan};
-use crate::score::Bindings;
+use crate::score::events::{MusicalEvent, PerformanceEvents};
 use clap::{Args, Subcommand};
 use serde_json::{Value, json};
 use std::io::Write;
@@ -67,7 +67,7 @@ pub(super) struct ScoreArgs {
     #[arg(value_name = "SCORE")]
     pub(super) score: PathBuf,
     #[command(flatten)]
-    pub(super) bindings: Bindings,
+    pub(super) bindings: InstrumentBindings,
     /// Emit machine-readable JSON results and diagnostics.
     #[arg(long)]
     pub(super) json: bool,
@@ -607,7 +607,7 @@ mod tests {
         let report = execute(ScoreCommand::Inspect(InspectArgs {
             score: ScoreArgs {
                 score: score_path.clone(),
-                bindings: Bindings::default(),
+                bindings: InstrumentBindings::default(),
                 json: false,
             },
             preview_json: false,
@@ -617,7 +617,7 @@ mod tests {
         let detailed = execute(ScoreCommand::Inspect(InspectArgs {
             score: ScoreArgs {
                 score: score_path,
-                bindings: Bindings::default(),
+                bindings: InstrumentBindings::default(),
                 json: false,
             },
             preview_json: false,

@@ -1,5 +1,6 @@
 use crate::output::CliFailure;
-use crate::score::{Bindings, EventSource, PartWindow, ScoreLane, ScorePlan};
+use crate::score::events::{MusicalEvent, PerformanceEvents};
+use crate::score::{EventSource, PartWindow, ScoreLane, ScorePlan, gain_linear};
 use serde::Serialize;
 use sonalloy_core::{Diagnostic, DiagnosticCode, DiagnosticContext, DiagnosticSeverity};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -9,12 +10,37 @@ use std::sync::Arc;
 pub(crate) mod events;
 mod loudness;
 mod master;
-use events::{CompiledEvents, MusicalEvent, PerformanceEvents};
+use events::CompiledEvents;
 pub(crate) use loudness::{AudioLoudnessReport, LoudnessStatus, analyze_audio_loudness};
 pub(crate) use master::{
     FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, analyze_loudness, encode_mp3,
     master, measure_loudness,
 };
+
+/// CLI settings for resolving score instrument definitions.
+#[derive(Debug, Clone, Default, clap::Args)]
+pub(crate) struct InstrumentBindings {
+    /// Preset root; takes precedence over `SONALLOY_PRESET_ROOT` and Score-relative presets/.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub(crate) preset_root: Option<PathBuf>,
+    /// Bind an `external: true` instrument as ID=DEFINITION; repeat for each. Fixed instruments,
+    /// unknown IDs, and duplicate bindings are rejected.
+    #[arg(long = "bind", value_name = "ID=DEFINITION")]
+    pub(crate) bind: Vec<String>,
+}
+
+fn annotate_diagnostics(score: &ScorePlan, diagnostics: &mut [Diagnostic]) {
+    for diagnostic in diagnostics {
+        if diagnostic.detail.is_none() {
+            if let Some(path) = diagnostic.path.as_deref() {
+                if path.starts_with("instruments.") || path.starts_with("meta.") {
+                    diagnostic.detail =
+                        Some(score.source_detail(path, &diagnostic.message).to_string());
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct AudioInput {
@@ -109,7 +135,7 @@ fn lane_failure(lane: &crate::score::ScoreLane, mut diagnostics: Vec<Diagnostic>
 pub(crate) fn definition_paths(
     score: &ScorePlan,
     path: &Path,
-    bindings: &Bindings,
+    bindings: &InstrumentBindings,
 ) -> Result<HashMap<String, PathBuf>, CliFailure> {
     let mut bound = HashMap::new();
     for binding in &bindings.bind {
@@ -222,13 +248,13 @@ pub(crate) fn definition_paths(
 
 pub(crate) fn load(
     path: &Path,
-    bindings: &Bindings,
+    bindings: &InstrumentBindings,
     sample_rate: u32,
     block_size: usize,
 ) -> Result<PerformancePlan, CliFailure> {
     let score = crate::score::read(path)?;
     let paths = definition_paths(&score, path, bindings).map_err(|mut failure| {
-        score.annotate_diagnostics(&mut failure.diagnostics);
+        annotate_diagnostics(&score, &mut failure.diagnostics);
         failure
     })?;
     prepare(score, &paths, sample_rate, block_size)
@@ -336,7 +362,7 @@ fn prepare(
         mix,
     };
     let audio_dependencies = resolve_audio_dependencies(&definition, &mut diagnostics);
-    score.annotate_diagnostics(&mut diagnostics);
+    annotate_diagnostics(&score, &mut diagnostics);
     if diagnostics
         .iter()
         .any(|d| d.severity == DiagnosticSeverity::Error)
@@ -660,9 +686,13 @@ mod tests {
             crate::score::to_yaml(&score).expect("Score YAML"),
         )
         .expect("score file");
-        let plan =
-            crate::performance::load(&score_path, &crate::score::Bindings::default(), 48_000, 257)
-                .expect("Score loads");
+        let plan = crate::performance::load(
+            &score_path,
+            &crate::performance::InstrumentBindings::default(),
+            48_000,
+            257,
+        )
+        .expect("Score loads");
         let mut audio = sonalloy_core::RenderedAudio {
             sample_rate: 48_000,
             channels: vec![vec![1.0; 192_000], vec![1.0; 192_000]],
@@ -925,14 +955,6 @@ fn is_windows_reserved_device_name(id: &str) -> bool {
         )
 }
 
-pub(crate) fn gain_linear(gain_db: f64) -> Option<f64> {
-    if !gain_db.is_finite() {
-        return None;
-    }
-    let gain = 10.0_f64.powf(gain_db / 20.0);
-    gain.is_finite().then_some(gain)
-}
-
 pub(crate) fn apply_section_part_gain(
     audio: &mut sonalloy_core::RenderedAudio,
     plan: &PerformancePlan,
@@ -1164,7 +1186,7 @@ fn prepare_mix(score: &ScorePlan) -> Result<Mix, CliFailure> {
         master: score
             .master
             .as_ref()
-            .map(|v| {
+            .map(|v| -> Result<Master, CliFailure> {
                 Ok(Master {
                     integrated_lufs: v["target_lufs"].as_f64().ok_or_else(|| {
                         failure("meta.master.target_lufs", "expected LUFS target")

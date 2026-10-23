@@ -140,7 +140,7 @@ pub(crate) fn start_scheduled_audition(
         &sonalloy_core::CompiledInstrument,
     ) -> Result<
         (
-            crate::performance::events::PerformanceEvents,
+            crate::score::events::PerformanceEvents,
             f64,
             Option<ScheduledGainPlan>,
         ),
@@ -172,7 +172,7 @@ pub(crate) fn start_scheduled_audition(
         load(options.definition_path, sample_rate, options.buffer_size)?;
     diagnostics.extend(compile_diagnostics);
     let (pattern, gain_db, gain_plan) = prepare(&compiled)?;
-    let gain = crate::performance::gain_linear(gain_db).ok_or_else(|| {
+    let gain = crate::score::gain_linear(gain_db).ok_or_else(|| {
         (
             2,
             vec![Diagnostic::error(
@@ -356,7 +356,7 @@ pub(crate) fn start_scheduled_audition(
 fn prepare_scheduled_gain(
     base_gain_db: f64,
     plan: Option<&ScheduledGainPlan>,
-    pattern: &crate::performance::events::PerformanceEvents,
+    pattern: &crate::score::events::PerformanceEvents,
     sample_rate: f64,
     looping: bool,
 ) -> Result<Option<ScheduledGainTimeline>, String> {
@@ -390,7 +390,7 @@ fn prepare_scheduled_gain(
         {
             return Err("scheduled gain segment is outside the Pattern timeline".to_owned());
         }
-        let to_gain = crate::performance::gain_linear(base_gain_db + segment.gain_db)
+        let to_gain = crate::score::gain_linear(base_gain_db + segment.gain_db)
             .ok_or_else(|| "scheduled gain is not finite".to_owned())?;
         #[allow(clippy::cast_possible_truncation)]
         let to_gain = to_gain as f32;

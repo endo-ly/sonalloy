@@ -127,7 +127,7 @@ pub(super) struct RenderScoreArgs {
     #[arg(value_name = "SCORE")]
     score: PathBuf,
     #[command(flatten)]
-    bindings: crate::score::Bindings,
+    bindings: crate::performance::InstrumentBindings,
     /// Select one named Section occurrence.
     #[arg(long, conflicts_with = "bars")]
     section: Option<String>,
@@ -3040,8 +3040,13 @@ mod mastering_tests {
             let path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../..")
                 .join(path);
-            let plan = performance::load(&path, &crate::score::Bindings::default(), 48000, 257)
-                .expect("preview loads");
+            let plan = performance::load(
+                &path,
+                &crate::performance::InstrumentBindings::default(),
+                48000,
+                257,
+            )
+            .expect("preview loads");
             let part = &plan.parts[0];
             let (audio, _) = render_compiled_pattern(
                 &part.instrument,
@@ -3213,7 +3218,7 @@ mod mastering_tests {
             score: score_path,
             trace: Vec::new(),
             trace_every_frames: None,
-            bindings: crate::score::Bindings::default(),
+            bindings: crate::performance::InstrumentBindings::default(),
             section: None,
             occurrence: None,
             bars: None,

@@ -146,13 +146,10 @@ fn automatic_voicing_limits_upper_tones_and_explicit_voicing_keeps_large_chords(
 
     let error = compile(&doc.to_string()).unwrap_err();
     assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "automatic voicing supports at most 6 upper tones; specify an explicit voicing"
     );
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("sections.a.comp.keys")
-    );
+    assert_eq!(error.path, "sections.a.comp.keys");
 
     doc["sections"]["a"]["chords"] = json!(["1:(1,2,3,4,5,6,7,9,11,13)"]);
     doc["instruments"]["keys"]["voicing"] =
@@ -173,14 +170,8 @@ fn bass_chord_tone_root_must_fit_the_instrument_range() {
 
     let error = compile(&doc.to_string()).expect_err("C2 exceeds the bass ceiling");
 
-    assert_eq!(
-        error.diagnostics[0].message,
-        "bass range contains no matching pitch"
-    );
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line[0]")
-    );
+    assert_eq!(error.message, "bass range contains no matching pitch");
+    assert_eq!(error.path, "melodies.line[0]");
 }
 
 #[test]
@@ -269,22 +260,16 @@ fn voicing_precedence_is_shared_by_comp_pad_arp_and_placements() {
     placement.as_object_mut().unwrap().remove("chord");
     placement["degree"] = json!("1");
     assert!(
-        compile(&doc.to_string()).unwrap_err().diagnostics[0]
+        compile(&doc.to_string())
+            .unwrap_err()
             .message
             .contains("voicing fields require chord")
     );
     doc["sections"]["a"] = json!({"chords":["1:maj/3"],
         "comp":{"lead":{"pattern":"pulse","voicing":["1,"]}}});
     let invalid = compile(&doc.to_string()).unwrap_err();
-    assert!(
-        invalid.diagnostics[0]
-            .message
-            .contains("below the slash bass")
-    );
-    assert_eq!(
-        invalid.diagnostics[0].path.as_deref(),
-        Some("sections.a.comp.lead")
-    );
+    assert!(invalid.message.contains("below the slash bass"));
+    assert_eq!(invalid.path, "sections.a.comp.lead");
     doc["sections"]["a"]["comp"]["lead"]["voicing"] = json!(["1"]);
     assert_eq!(
         notes(&compile(&doc.to_string()).unwrap(), "lead")
@@ -530,7 +515,7 @@ fn pad_hold_is_builtin_and_refollows_chord_changes() {
     }
     doc["comp"] = json!({"hold":"x - - - | . . . . | . . . . | . . . ."});
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(error.diagnostics[0].path.as_deref(), Some("comp.hold"));
+    assert_eq!(error.path, "comp.hold");
 }
 
 #[test]
@@ -542,16 +527,12 @@ fn pattern_lengths_assertions_and_swing_share_the_section_timeline() {
 
     doc["melodies"]["line"] = json!(["1 | .:15"]);
     let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(error.path, "melodies.line[0]");
     assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "boundary assertion is not at the requested boundary"
     );
-    let detail: Value =
-        serde_json::from_str(error.diagnostics[0].detail.as_deref().unwrap()).unwrap();
+    let detail = &error.detail;
     assert_eq!(detail["actual"], "|");
     assert!(detail["column"].as_u64().unwrap() > 0);
 
@@ -579,22 +560,13 @@ fn pattern_lengths_assertions_and_swing_share_the_section_timeline() {
     );
     doc["melodies"]["line"] = json!(["[1 3] .:2"]);
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "tuplet must start at an interval boundary"
-    );
+    assert_eq!(error.path, "melodies.line[0]");
+    assert_eq!(error.message, "tuplet must start at an interval boundary");
     doc["melodies"]["line"] = json!(["1:5"]);
     let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(error.path, "sections.a.lines.main");
     assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("sections.a.lines.main")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "melody length must match section length or divide it with loop"
     );
 }
@@ -610,12 +582,9 @@ fn melody_items_preserve_references_replacement_lengths_and_pickups() {
     );
     doc["melodies"]["changed"]["replace"]["2"] = json!("5:7");
     let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(error.path, "melodies.changed.replace.2");
     assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.changed.replace.2")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "replacement item length must equal source length"
     );
 
@@ -654,14 +623,8 @@ fn melody_items_preserve_references_replacement_lengths_and_pickups() {
     );
     doc["form"] = json!([{"section":"a","bars":1,"tonic":"C"}]);
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line.items[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "melody note begins before score"
-    );
+    assert_eq!(error.path, "melodies.line.items[0]");
+    assert_eq!(error.message, "melody note begins before score");
 
     doc["melodies"]["line"]["items"] = json!(["5 6 7 || 1:16", "3:16"]);
     doc["sections"]["a"]["lines"]["main"]["slice_items"] = json!([2, 2]);
@@ -686,14 +649,8 @@ fn melody_registers_tonic_overrides_and_chord_tones_resolve_pitch() {
     );
     doc["sections"]["a"]["lines"]["main"]["tonic"] = json!("D");
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("sections.a.lines.main")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "tonic cannot override chord_bass material"
-    );
+    assert_eq!(error.path, "sections.a.lines.main");
+    assert_eq!(error.message, "tonic cannot override chord_bass material");
     doc["melodies"]["line"]["relative_to"] = json!("tonic");
     assert_eq!(
         notes(&compile(&doc.to_string()).unwrap(), "lead")
@@ -721,14 +678,8 @@ fn articulation_and_dynamics_combine_before_velocity_validation() {
     );
     doc["sections"]["a"]["events"][0]["from"] = json!(10);
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "final velocity must be 1..127"
-    );
+    assert_eq!(error.path, "melodies.line[0]");
+    assert_eq!(error.message, "final velocity must be 1..127");
     doc["sections"]["a"]["events"][0]["from"] = json!(-20);
     let duplicate = doc["sections"]["a"]["events"][0].clone();
     doc["sections"]["a"]["events"]
@@ -736,14 +687,8 @@ fn articulation_and_dynamics_combine_before_velocity_validation() {
         .unwrap()
         .push(duplicate);
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("sections.a.events[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "overlapping dynamics for instrument"
-    );
+    assert_eq!(error.path, "sections.a.events[0]");
+    assert_eq!(error.message, "overlapping dynamics for instrument");
 }
 
 #[test]
@@ -775,14 +720,8 @@ fn control_automation_samples_exact_positions_and_detects_conflicts() {
     );
     doc["sections"]["a"]["events"].as_array_mut().unwrap().push(json!({"kind":"pitch_bend","instrument":"lead","at":{"bar":1,"offset_quarters":"1/128"},"value":0}));
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("sections.a.events[1]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "control conflicts with automation interval"
-    );
+    assert_eq!(error.path, "sections.a.events[1]");
+    assert_eq!(error.message, "control conflicts with automation interval");
 }
 
 #[test]
@@ -800,14 +739,8 @@ fn instrument_swing_and_offsets_apply_after_notated_expressions() {
     );
     doc["instruments"]["lead"]["timing_offset_steps"] = json!("-1/2");
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("melodies.line[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "timing offset places event outside score"
-    );
+    assert_eq!(error.path, "melodies.line[0]");
+    assert_eq!(error.message, "timing offset places event outside score");
 }
 
 #[test]
@@ -831,12 +764,9 @@ fn drum_phrases_repeat_and_bar_lists_select_overrides() {
     );
     doc["form"][0]["bars"] = json!(3);
     let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(error.path, "drums.beat.parts.drum");
     assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("drums.beat.parts.drum")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "section bars must be a multiple of drum phrase length"
     );
 }
@@ -891,9 +821,9 @@ fn anticipated_harmony_holds_across_bar_heads_and_guides_bass() {
     );
     doc["sections"]["a"]["chords"] = json!(["1:maj", "<<<<<<<<<<<<<<<<4:maj"]);
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(error.diagnostics[0].path.as_deref(), Some("sections"));
+    assert_eq!(error.path, "sections");
     assert_eq!(
-        error.diagnostics[0].message,
+        error.message,
         "chord anticipation must follow previous chord change and remain within score"
     );
 }
@@ -934,12 +864,6 @@ fn tempo_ramps_expand_to_steps_and_reject_intervening_changes() {
         .unwrap()
         .push(json!({"at_quarters":"3/2","bpm":100}));
     let error = compile(&doc.to_string()).unwrap_err();
-    assert_eq!(
-        error.diagnostics[0].path.as_deref(),
-        Some("time_changes[0]")
-    );
-    assert_eq!(
-        error.diagnostics[0].message,
-        "tempo change overlaps tempo ramp"
-    );
+    assert_eq!(error.path, "time_changes[0]");
+    assert_eq!(error.message, "tempo change overlaps tempo ramp");
 }
