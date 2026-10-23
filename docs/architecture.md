@@ -41,11 +41,7 @@ RealtimeでもOfflineでも音声は同じ`sonalloy-core`の処理契約を通�
 
 CLIはユーザー入力の解釈と、OSのAudio / MIDI Deviceとのやり取りを担います。
 
-楽譜の入力はScore YAMLに集約します。`score`は構文・参照・音高・有理数の音楽時間を解決し、楽器指定、演奏イベント、セクション、ソース位置を含む`ScorePlan`を生成します。`score/events.rs`がイベントのデータ型を所有し、`performance`は楽器定義と外部バインドの解決、音源能力に応じたイベント検証、DSP用の時間軸への変換、音声配線、MixとMasterを担います。Offline Render、Realtime Audition、MIDI出力はこの演奏計画を共有し、音源定義のCompileと音声処理をCoreへ渡します。
-
-`performance`は`score`の型を参照し、`score`は楽譜処理に必要な外部クレートだけに依存します。Scoreのエラーとソース位置は`score`が保持し、`output`がCLI診断へ変換します。演奏準備中の診断には、`performance`がScoreのソース位置を付加します。
-
-Scoreの解析・展開を別のRustプロジェクトで利用する場合は、`crates/sonalloy-cli/src/score/`の`mod.rs`、`events.rs`、`parse.rs`、`resolve.rs`、`lower.rs`、`syntax.rs`、`time.rs`をまとめて移します。必要な外部クレートは、データ表現とシリアライズの`serde`（derive）・`serde_json`（preserve_order）、YAML入出力の`yaml-rust2`、正確な音楽時間計算の`num-rational`・`num-bigint`・`num-traits`、エラー定義の`thiserror`です。テストも移す場合は`expression_tests.rs`と、テストが参照する楽譜・スナップショット、`sha2`が必要です。
+楽譜の入力はScore YAMLに集約します。`score`は構文・参照・音高・有理数の音楽時間を解決し、`performance`は共通の時間軸、楽器別の演奏Lane、音声配線、MixとMasterを所有します。Offline Render、Realtime Audition、MIDI出力はこの演奏計画を共有し、音源定義のCompileと音声処理をCoreへ渡します。
 
 Realtime Sessionは、次の要素で構成されます。
 
