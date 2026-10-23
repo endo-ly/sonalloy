@@ -1,0 +1,241 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Flanged Drift Reese",
+    "author": "claude-opus-5-5",
+    "description": "6本のSaw波のユニゾンとSine波のサブを重ねた、厚く暗いReeseベース。Saw波の音程差がなめらかな乱数で揺れ続け、ラダーフィルターが2拍周期で開閉し、全体にかかったフランジャーがゆっくりうねる。低い音域で伸ばすと揺れの重なりが厚い土台になり、Mod Wheelでフィルターが開いて中域の歪みが前に出る。",
+    "category": "Bass",
+    "tags": [
+      "Detuned",
+      "Dense",
+      "Rough",
+      "Evolving",
+      "Sub"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 48
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.07
+    }
+  },
+  "layers": [
+    {
+      "id": "saws",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": false,
+          "phase": 0.0,
+          "unison": {
+            "voices": 6,
+            "detune_cents": 26.0,
+            "stereo_spread": 0.25,
+            "phase_spread": 0.7
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body_cut",
+          "mode": "high_pass",
+          "cutoff_hz": 318.0,
+          "resonance": 0.05
+        },
+        {
+          "type": "ladder_filter",
+          "id": "lp",
+          "cutoff_hz": 750,
+          "resonance": 0.25,
+          "drive": 0.45
+        }
+      ]
+    },
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": false,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "drive",
+      "id": "grind",
+      "amount": 0.4,
+      "mix": 0.5
+    },
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 80,
+      "low_gain_db": 1.0,
+      "mid_frequency_hz": 350,
+      "mid_gain_db": 2.0,
+      "mid_q": 0.9,
+      "high_frequency_hz": 5000,
+      "high_gain_db": -1.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "flanger",
+      "id": "jet",
+      "delay_ms": 2.5,
+      "rate_hz": 0.18,
+      "depth": 0.7,
+      "width": 0.6,
+      "feedback": 0.55,
+      "mix": 0.3
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drift",
+        "type": "smooth_random",
+        "seed": 4242,
+        "rate": {
+          "value": 1.2,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "breathe",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.5,
+          "unit": "per_beat"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "drift",
+        "target": "layer.saws.generator.unison_detune",
+        "depth": {
+          "value": 9.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "breathe",
+        "target": "layer.saws.processor.lp.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.saws.processor.lp.cutoff",
+        "depth": {
+          "value": 2.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saws.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.saws.processor.body_cut.cutoff",
+        "depth": {
+          "value": 5.291666666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saws.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

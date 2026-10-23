@@ -1,0 +1,295 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Vowel Morph Wavetable Pluck",
+    "author": "claude-opus-5-5",
+    "description": "母音の共鳴を並べたWavetableを減衰の間に走査し、はじくたびにイからオへ口の形が移る有音程のプラック。明るさだけでなく共鳴の位置そのものが動くため、短い音でも声のような表情があり、短いクリックと丸い胴が発音の輪郭を作り、エコーと残響が後ろに広がる。強いVelocityほど口の動きが大きく、Mod Wheelで動きの行き先がアやウの側へずれる。",
+    "category": "Pluck",
+    "tags": [
+      "Wavetable",
+      "Formant",
+      "Plucky",
+      "Evolving"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "vowel",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 2.4,
+        "sustain_level": 0.0,
+        "release_seconds": 0.45
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/vowel-morph-pluck.wav",
+            "sha256": "9cf3ae43813762fffccda3831261daa673fdfe616462be534db0f3b0d2653e50"
+          },
+          "frame_length": 2048,
+          "position": 0.0,
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 2,
+            "detune_cents": 5,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.3
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.7,
+        "sustain_level": 0.0,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "click",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -39.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.006,
+        "sustain_level": 0.0,
+        "release_seconds": 0.004
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 9091,
+          "stereo_correlation": 0.8
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 2500,
+          "resonance": 0
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 7500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "color",
+      "low_frequency_hz": 140,
+      "low_gain_db": -3,
+      "mid_frequency_hz": 1800,
+      "mid_gain_db": 1.5,
+      "mid_q": 0.8,
+      "high_frequency_hz": 9000,
+      "high_gain_db": -1
+    },
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback": 0.25,
+      "feedback_mode": "ping_pong",
+      "taps": [],
+      "mix": 0.1
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.6,
+      "damping": 0.45,
+      "width": 1,
+      "mix": 0.16
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3,
+      "release_ms": 100,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "mouth",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.7,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "source": "mouth",
+        "target": "layer.vowel.generator.wavetable_position",
+        "depth": {
+          "value": 0.55,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.vowel.generator.wavetable_position",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.vowel.generator.wavetable_position",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.vowel.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.vowel.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,51 @@
+meta:
+  title: "Comb Drift Wavetable Pad preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "4"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "4"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "b3"
+        duration_quarters: "4"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "b7"
+        duration_quarters: "4"
+        velocity: 85
+instruments:
+  preview:
+    preset: "PAD/012-comb-drift-wavetable-pad"

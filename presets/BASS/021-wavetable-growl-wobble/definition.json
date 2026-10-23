@@ -1,0 +1,292 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Wavetable Growl Wobble",
+    "author": "claude-opus-5-5",
+    "description": "自作Wavetableの唸る倍音を、テンポに同期したLFOで走査とフィルターの両方から揺らすウォブルベース。走査が進むと偶数倍音が抜けて母音のような二つの共鳴が上へ移り、Sine波のサブが最低域を支える。Mod Wheelで8分音符の揺れから3連8分の揺れへ滑らかに移り、伸ばした音ほど揺れの周期がはっきり聞こえる。",
+    "category": "Bass",
+    "tags": [
+      "Wavetable",
+      "Rhythmic",
+      "Rough",
+      "Sub"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 50
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.05
+    }
+  },
+  "layers": [
+    {
+      "id": "eighth",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/growl-wobble-bass.wav",
+            "sha256": "f388cfe5645d7bca5e585c632dadd2fbcc6d2ce13ac6bf797bf371f3094da39f"
+          },
+          "frame_length": 2048,
+          "position": 0.25,
+          "phase_reset": false,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 9.0,
+            "stereo_spread": 0.35,
+            "phase_spread": 0.5
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "ladder_filter",
+          "id": "lp",
+          "cutoff_hz": 900,
+          "resonance": 0.45,
+          "drive": 0.5
+        }
+      ]
+    },
+    {
+      "id": "triplet",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/growl-wobble-bass.wav",
+            "sha256": "f388cfe5645d7bca5e585c632dadd2fbcc6d2ce13ac6bf797bf371f3094da39f"
+          },
+          "frame_length": 2048,
+          "position": 0.35,
+          "phase_reset": false,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 12.0,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.5
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "ladder_filter",
+          "id": "lp",
+          "cutoff_hz": 1000,
+          "resonance": 0.5,
+          "drive": 0.5
+        }
+      ]
+    },
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": false,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "drive",
+      "id": "melt",
+      "amount": 0.35,
+      "mix": 0.45
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 70,
+      "low_gain_db": 1.5,
+      "mid_frequency_hz": 450,
+      "mid_gain_db": -2.0,
+      "mid_q": 0.8,
+      "high_frequency_hz": 4000,
+      "high_gain_db": 2.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "w8",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 2.0,
+          "unit": "per_beat"
+        },
+        "phase": 0.0
+      },
+      {
+        "id": "w3",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 3.0,
+          "unit": "per_beat"
+        },
+        "phase": 0.25
+      }
+    ],
+    "routes": [
+      {
+        "source": "w8",
+        "target": "layer.eighth.processor.lp.cutoff",
+        "depth": {
+          "value": 2.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "w8",
+        "target": "layer.eighth.generator.wavetable_position",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "w3",
+        "target": "layer.triplet.processor.lp.cutoff",
+        "depth": {
+          "value": 2.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "w3",
+        "target": "layer.triplet.generator.wavetable_position",
+        "depth": {
+          "value": 0.4,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "vector.rate.position",
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.eighth.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.triplet.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "type": "two_way",
+      "id": "rate",
+      "name": "Rate",
+      "layer_a": "eighth",
+      "layer_b": "triplet",
+      "position": 0.0
+    }
+  ],
+  "macros": []
+}

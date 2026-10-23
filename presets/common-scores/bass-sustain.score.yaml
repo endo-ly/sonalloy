@@ -1,0 +1,128 @@
+meta:
+  title: "Bass - Sustain, Glide and Motion"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 7
+    tonic: "C"
+    scale: "aeolian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1,,"
+        duration_quarters: "8"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "1,,"
+        duration_quarters: "9/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "b3,,"
+        duration_quarters: "5/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "4,,"
+        duration_quarters: "5/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "5,,"
+        duration_quarters: "3/4"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "5,,"
+        duration_quarters: "1/2"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "2"
+        degree: "b7,,,"
+        duration_quarters: "3/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "1,,"
+        duration_quarters: "1"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "5,,,"
+        duration_quarters: "8"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "4,,,"
+        duration_quarters: "1"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "1"
+        degree: "1,,"
+        duration_quarters: "3"
+        velocity: 110
+    events:
+      -
+        kind: "automation"
+        instrument: "preview"
+        control: "mod_wheel"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        from_value: 0
+        to_value: 1
+        duration_quarters: "4"
+      -
+        kind: "automation"
+        instrument: "preview"
+        control: "mod_wheel"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        from_value: 1
+        to_value: 0
+        duration_quarters: "2"
+instruments:
+  preview:
+    external: true

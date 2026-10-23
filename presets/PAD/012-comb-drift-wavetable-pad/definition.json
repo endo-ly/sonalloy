@@ -1,0 +1,378 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Comb Drift Wavetable Pad",
+    "author": "claude-opus-5-5",
+    "description": "倍音列に櫛の歯のような抜けを付けたWavetableを、2層が別々の速さで走査する中空のパッド。抜けの間隔と位置がゆっくり移るため、明るさはほとんど変えずに中空感の形だけが絶えず入れ替わり、広いユニゾンと長い残響が和音を包む。和音で伸ばすと各声部の抜けが干渉して揺れが重なり、Mod Wheelで走査の幅が広がって移ろいが深くなる。",
+    "category": "Pad",
+    "tags": [
+      "Wavetable",
+      "Hollow",
+      "Evolving",
+      "Wide",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "front",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.6,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.9,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.85,
+        "release_seconds": 2.2
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/comb-drift-pad.wav",
+            "sha256": "7c163711b694e865038433c95fedb4ef5026738acf9e8d8fa2b25e31619b3c75"
+          },
+          "frame_length": 2048,
+          "position": 0.3,
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 9,
+            "stereo_spread": 0.85,
+            "phase_spread": 0.6
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "back",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.6,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 1.3,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.85,
+        "release_seconds": 2.6
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/comb-drift-pad.wav",
+            "sha256": "7c163711b694e865038433c95fedb4ef5026738acf9e8d8fa2b25e31619b3c75"
+          },
+          "frame_length": 2048,
+          "position": 0.65,
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 13,
+            "stereo_spread": 0.95,
+            "phase_spread": 0.7
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "core",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22.6,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.9,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.85,
+        "release_seconds": 2.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": false,
+          "phase": 0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "clear",
+      "mode": "high_pass",
+      "cutoff_hz": 120,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "glaze",
+      "mode": "low_pass",
+      "cutoff_hz": 6500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "canopy",
+      "delay_ms": 16,
+      "rate_hz": 0.21,
+      "depth": 0.25,
+      "feedback": 0.05,
+      "width": 0.9,
+      "mix": 0.2
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.025,
+      "decay": 0.7,
+      "damping": 0.55,
+      "width": 0.9,
+      "mix": 0.4
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drift_front",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.071,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "drift_back",
+        "type": "lfo",
+        "waveform": "triangle",
+        "rate": {
+          "value": 0.113,
+          "unit": "per_second"
+        },
+        "phase": 0.35
+      },
+      {
+        "id": "wander",
+        "type": "smooth_random",
+        "seed": 1212,
+        "rate": {
+          "value": 0.18,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "open",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 2.5,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "source": "drift_front",
+        "target": "layer.front.generator.wavetable_position",
+        "depth": {
+          "value": 0.28,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift_back",
+        "target": "layer.back.generator.wavetable_position",
+        "depth": {
+          "value": 0.3,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "wander",
+        "target": "layer.front.generator.wavetable_position",
+        "depth": {
+          "value": 0.06,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift_front",
+        "target": "layer.front.generator.wavetable_position",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear",
+        "depth_control": "mod_wheel"
+      },
+      {
+        "source": "drift_back",
+        "target": "layer.back.generator.wavetable_position",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear",
+        "depth_control": "mod_wheel"
+      },
+      {
+        "source": "open",
+        "target": "layer.front.generator.wavetable_position",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "open",
+        "target": "voice.processor.glaze.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.glaze.cutoff",
+        "depth": {
+          "value": 1.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.glaze.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.front.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.back.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "wander",
+        "target": "layer.back.tuning",
+        "depth": {
+          "value": 3,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.front.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.back.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.core.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
