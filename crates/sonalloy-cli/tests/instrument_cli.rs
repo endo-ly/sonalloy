@@ -629,7 +629,8 @@ fn missing_definition_field_has_a_specific_diagnostic_code() {
         ])
         .assert()
         .code(1)
-        .stdout(predicates::str::contains("\"REQUIRED_FIELD_MISSING\""));
+        .stdout(predicates::str::contains("\"REQUIRED_FIELD_MISSING\""))
+        .stdout(predicates::str::contains("\"path\":\"metadata\""));
 }
 
 #[test]

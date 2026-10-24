@@ -210,6 +210,12 @@ fn run_validate(args: &BatchDefinitionArgs) -> ExitCode {
             for diagnostic in &file.diagnostics {
                 if diagnostic.severity == sonalloy_core::DiagnosticSeverity::Error {
                     eprintln!("  error[{:?}]: {}", diagnostic.code, diagnostic.message);
+                    if let Some(path) = &diagnostic.path {
+                        eprintln!("    path: {path}");
+                    }
+                    if let Some(detail) = &diagnostic.detail {
+                        eprintln!("    detail: {detail}");
+                    }
                 }
             }
         }

@@ -197,6 +197,52 @@ pub enum LayerTriggerEvent {
 }
 
 impl InstrumentDefinition {
+    /// Parse a Definition from JSON text.
+    ///
+    /// # Errors
+    /// Returns a diagnostic that locates the offending Definition field when the
+    /// text is not valid Definition JSON.
+    pub fn from_json(text: &str) -> Result<Self, Diagnostic> {
+        match serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(text)) {
+            Ok(definition) => Ok(definition),
+            Err(error) => Err(Self::parse_diagnostic(error)),
+        }
+    }
+
+    /// Convert a JSON parse failure into a structured diagnostic.
+    fn parse_diagnostic(error: serde_path_to_error::Error<serde_json::Error>) -> Diagnostic {
+        let location = error.path().to_string();
+        let inner = error.into_inner();
+        let message = inner.to_string();
+        let code = if message.starts_with("missing field") {
+            DiagnosticCode::RequiredFieldMissing
+        } else {
+            DiagnosticCode::JsonInvalid
+        };
+        // Missing-field failures point at the enclosing object, so extend the
+        // location to the absent field. `.` marks the document root, which has no
+        // location of its own.
+        let path = message
+            .strip_prefix("missing field `")
+            .and_then(|rest| rest.split_once('`'))
+            .map(|(field, _)| {
+                if location == "." {
+                    field.to_owned()
+                } else {
+                    format!("{location}.{field}")
+                }
+            })
+            .or_else(|| (location != ".").then(|| location.clone()));
+        let mut diagnostic = Diagnostic::error(code, "could not parse Definition JSON")
+            .with_detail(format!(
+                "line {}, column {}: {message}",
+                inner.line(),
+                inner.column()
+            ));
+        diagnostic.path = path;
+        diagnostic
+    }
+
     /// Return the number of external input channels required by the Definition.
     #[must_use]
     pub fn required_input_channels(&self) -> usize {
@@ -626,6 +672,43 @@ pub(crate) mod tests {
             macros: Vec::new(),
             vectors: Vec::new(),
         }
+    }
+
+    #[test]
+    fn parse_error_reports_the_missing_field_location() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["global_processors"] = serde_json::json!([{
+            "type": "compressor",
+            "id": "duck",
+            "threshold_db": -24.0,
+            "ratio": 6.0,
+            "attack_ms": 8.0,
+            "release_ms": 180.0,
+            "knee_db": 6.0,
+            "makeup_gain_db": 0.0,
+            "mix": 1.0,
+        }]);
+        let text = serde_json::to_string(&value).expect("value serializes");
+
+        let error = InstrumentDefinition::from_json(&text)
+            .expect_err("definition without detector must not parse");
+
+        assert_eq!(error.code, DiagnosticCode::RequiredFieldMissing);
+        assert_eq!(error.path.as_deref(), Some("global_processors[0].detector"));
+    }
+
+    #[test]
+    fn json_syntax_error_reports_no_location() {
+        let error = InstrumentDefinition::from_json("not json").expect_err("text must not parse");
+
+        assert_eq!(error.code, DiagnosticCode::JsonInvalid);
+        assert_eq!(error.path, None);
+        assert!(
+            error
+                .detail
+                .as_deref()
+                .is_some_and(|detail| detail.contains("line 1, column 2"))
+        );
     }
 
     #[test]

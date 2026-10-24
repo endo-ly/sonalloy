@@ -32,9 +32,9 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。Delay Processorは最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
 | Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR。最大10秒、最大2個 |
-| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity） | `threshold_db`、`range_db` | `detector`、`hysteresis_db`、各Time Field。Globalの`external_audio`は入力整列後に検出 |
+| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity）、`detector`: `self_signal` / `external_audio`（`external_audio`はGlobalのみ） | `threshold_db`、`range_db` | `detector`、`hysteresis_db`、各Time Field。Globalの`external_audio`は入力整列後に検出 |
 | Transient Shaper（Voice / Global） | `attack` / `sustain`: -1〜1、`mix`: 0〜1 | `attack`、`sustain`、`mix` | Fast / Slow EnvelopeのTime Constant |
-| Compressor（Voice / Global） | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `detector`、`attack_ms`、`release_ms`、`knee_db`。Globalの`external_audio`は入力整列後に検出 |
+| Compressor（Voice / Global） | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1、`detector`: `self_signal` / `external_audio`（`external_audio`はGlobalのみ） | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `detector`、`attack_ms`、`release_ms`、`knee_db`。Globalの`external_audio`は入力整列後に検出 |
 | Vocoder（Globalのみ） | `attack_ms`: 0.1〜100 ms、`release_ms`: 5〜1000 ms、`modulator_gain_db` / `output_gain_db`: -24〜24 dB、`mix`: 0〜1 | `modulator_gain_db`、`output_gain_db`、`mix` | 24帯域、0 frames |
 | Envelope Transfer（Globalのみ） | `attack_ms`: 0.1〜200 ms、`release_ms`: 1〜2000 ms、`input_gain_db`: -24〜24 dB、`floor_db`: -96〜0 dB、`mix`: 0〜1 | `input_gain_db`、`floor_db`、`mix` | 0 frames |
 | Spectral Morph（Globalのみ） | `morph`: 0〜1、`output_gain_db`: -24〜24 dB | `morph`、`output_gain_db` | FFT 1024 / Hop 256 |
@@ -42,9 +42,9 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 
 `Dynamic Parameter`列はRouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
 
-## EQとDelayの定義例
+## EQ、Delay、Compressorの定義例
 
-EQはLayer / Voice / Global Chainに、DelayはGlobal Chainに配置します。次のObjectをProcessor配列へ追加できます。
+EQはLayer / Voice / Global Chainに、CompressorはVoice / Global Chainに、DelayはGlobal Chainに配置します。次のObjectをProcessor配列へ追加できます。
 
 ### EQ
 
@@ -75,6 +75,25 @@ EQはLayer / Voice / Global Chainに、DelayはGlobal Chainに配置します。
     {"time": {"value": 0.5, "unit": "beats"}, "gain_db": -6.0}
   ],
   "mix": 0.3
+}
+```
+
+### Compressor
+
+GateとCompressorは検出信号を選ぶ`detector`が必須Fieldです。`self_signal`はProcessorへ入力される信号を検出し、`external_audio`は外部Audio Busを検出します。
+
+```json
+{
+  "type": "compressor",
+  "id": "glue",
+  "threshold_db": -24.0,
+  "ratio": 6.0,
+  "attack_ms": 8.0,
+  "release_ms": 180.0,
+  "knee_db": 6.0,
+  "makeup_gain_db": 0.0,
+  "mix": 1.0,
+  "detector": "self_signal"
 }
 ```
 

@@ -4,10 +4,7 @@ use std::path::PathBuf;
 use std::ptr;
 use std::sync::Arc;
 
-use sonalloy_core::{
-    CompileContext, Diagnostic, DiagnosticCode, DiagnosticSeverity, InstrumentDefinition,
-    compile_instrument,
-};
+use sonalloy_core::{CompileContext, DiagnosticSeverity, InstrumentDefinition, compile_instrument};
 
 use crate::diagnostics::boxed;
 use crate::types::{
@@ -44,17 +41,11 @@ pub extern "C" fn sonalloy_compile_json(
             Ok(value) => value,
             Err(error) => return error,
         };
-        let definition = match serde_json::from_str::<InstrumentDefinition>(&json) {
+        let definition = match InstrumentDefinition::from_json(&json) {
             Ok(definition) => definition,
-            Err(error) => {
+            Err(diagnostic) => {
                 unsafe {
-                    *out_diagnostics = boxed(vec![
-                        Diagnostic::error(
-                            DiagnosticCode::JsonInvalid,
-                            "definition JSON is invalid",
-                        )
-                        .with_detail(error.to_string()),
-                    ]);
+                    *out_diagnostics = boxed(vec![diagnostic]);
                 }
                 return SonalloyResult::CompileFailed;
             }
@@ -110,17 +101,11 @@ pub extern "C" fn sonalloy_inspect_json(
         if let Err(error) = definition_base_dir.to_owned() {
             return error;
         }
-        let definition = match serde_json::from_str::<InstrumentDefinition>(&json) {
+        let definition = match InstrumentDefinition::from_json(&json) {
             Ok(definition) => definition,
-            Err(error) => {
+            Err(diagnostic) => {
                 unsafe {
-                    *out_diagnostics = boxed(vec![
-                        Diagnostic::error(
-                            DiagnosticCode::JsonInvalid,
-                            "definition JSON is invalid",
-                        )
-                        .with_detail(error.to_string()),
-                    ]);
+                    *out_diagnostics = boxed(vec![diagnostic]);
                 }
                 return SonalloyResult::CompileFailed;
             }

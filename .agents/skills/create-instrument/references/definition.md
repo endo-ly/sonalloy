@@ -56,7 +56,7 @@
 共通の規則：
 
 - Layer / Processor / Sourceの識別子（ID）は、小文字で始まり、小文字・数字・`_`を使用します（`.`は使えません）
-- 定義されていないFieldがあるとJSON Parse Errorになります
+- 定義されていないFieldや、必須Fieldの欠落があるとJSON Parse Errorになります
 
 ## Metadata
 

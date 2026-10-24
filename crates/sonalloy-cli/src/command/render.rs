@@ -1361,17 +1361,10 @@ fn score_asset_paths(definition_path: &Path) -> Result<Vec<PathBuf>, CliFailure>
             .with_detail(error.to_string()),
         ],
     })?;
-    let mut definition: sonalloy_core::InstrumentDefinition =
-        serde_json::from_str(&text).map_err(|error| CliFailure {
+    let mut definition =
+        sonalloy_core::InstrumentDefinition::from_json(&text).map_err(|diagnostic| CliFailure {
             code: 1,
-            diagnostics: vec![
-                Diagnostic::error(
-                    DiagnosticCode::JsonInvalid,
-                    "could not inspect instrument definition assets",
-                )
-                .with_path(definition_path.to_string_lossy())
-                .with_detail(error.to_string()),
-            ],
+            diagnostics: vec![diagnostic],
         })?;
     definition.layers.retain(|layer| layer.enabled);
     let base = definition_path

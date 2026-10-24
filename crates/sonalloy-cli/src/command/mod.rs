@@ -140,26 +140,10 @@ pub(crate) fn load_with_metadata(
             .with_detail(error.to_string()),
         ],
     })?;
-    let definition: InstrumentDefinition =
-        serde_json::from_str(&text).map_err(|error| CliFailure {
-            code: 1,
-            diagnostics: vec![
-                Diagnostic::error(
-                    if error.to_string().starts_with("missing field") {
-                        DiagnosticCode::RequiredFieldMissing
-                    } else {
-                        DiagnosticCode::JsonInvalid
-                    },
-                    "could not parse Definition JSON",
-                )
-                .with_path(path.to_string_lossy())
-                .with_detail(format!(
-                    "line {}, column {}: {error}",
-                    error.line(),
-                    error.column()
-                )),
-            ],
-        })?;
+    let definition = InstrumentDefinition::from_json(&text).map_err(|diagnostic| CliFailure {
+        code: 1,
+        diagnostics: vec![diagnostic],
+    })?;
     let input_channels = definition
         .external_audio
         .map_or(0, |external_audio| external_audio.channels.channel_count());

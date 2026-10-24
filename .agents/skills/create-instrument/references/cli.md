@@ -24,6 +24,8 @@ Sonalloy CLIは、音源定義とScoreを検証し、音声をレンダリング
 
 Clapによる引数構文や値のエラーは標準エラーへ表示され、終了コード2で終了します。これはコマンド実行後のJSON診断には含まれません。Warningを持つ成功Reportは終了コード0です。
 
+Definition JSONのParse Errorは、Errorの箇所を特定できる場合に、そのDefinition上の位置を`path`へ返します。例えばCompressorの`detector`が欠けた定義では、`REQUIRED_FIELD_MISSING`の`path`が`global_processors[4].detector`のようになります。
+
 ## Preset一覧
 
 プリセット一覧はビルド時にCLIへ埋め込まれ、実行時の作業ディレクトリに依存しません。JSON Reportの形式は次のとおりです。
