@@ -658,26 +658,12 @@ form:
 
 ## 13. Riffra の拡張
 
-Riffra が曲の編集正本として使う項目のうち、Sonalloy が解釈できないものを既知の拡張として列挙する。Sonalloy は列挙された項目を読み飛ばし、種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` の警告を返す。列挙にない未知の項目と未知のイベント種別は、従来どおりエラーとする。
+Riffra が曲の編集正本として持つ項目のうち、Sonalloy が解釈しない既知のキーとイベント種別は読み飛ばし、種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` 警告を返す。列挙にないキーとイベント種別はエラーとする。
 
-| 位置 | 内容 |
-|---|---|
-| 最上位 `kits` | キット（1つの音源で複数のドラム部品を鳴らす指定） |
-| 最上位 `lyrics` | 歌詞の素材 |
-| 最上位 `mix` | トラックの出力先・センド・バス・サイドチェイン・オートメーション・マスター |
-| `instruments.<id>.source` | 本番の音源（VST3 など） |
-| `instruments.<id>.effects` | 楽器のエフェクト |
-| `instruments.<id>.kit` | キットの参照 |
-| `instruments.<id>.audio` | 録音素材を置く楽器 |
-| `sections.<name>.audio_clips` | 音声クリップ |
-| `sections.<name>.lines.<name>.lyrics` | 旋律へ当てる歌詞 |
-| イベント `articulation` / `cc` / `breath` / `voice_dynamics` / `voice_style` | 奏法・制御・歌の表現 |
+- キー: `kits`、`lyrics`、`mix`、`instruments.<id>.source`、`instruments.<id>.effects`、`instruments.<id>.kit`、`instruments.<id>.audio`、`sections.<name>.audio_clips`、`sections.<name>.lines.<line>.lyrics`
+- イベント種別: `articulation`、`cc`、`breath`、`voice_dynamics`、`voice_style`
 
-- 拡張の内部は検証しない。Sonalloy は展開・演奏に使わない
-- 同じ楽器に内蔵音源と拡張の指定が並ぶ場合は、拡張を無視して内蔵音源を使う
-- `source` だけ、または `audio: true` だけを持つ楽器は、音楽構造だけを残して解決・検証・実行の対象から外す
-- `audio_input` の参照先が演奏対象から外れた場合、その参照元も演奏対象から外す。存在しない音源を読み込もうとしない
-- 表示用の `instruments.<id>.sound` と `sections.<name>.notes` は拡張ではない。文字列として検証し、演奏に作用しない
+拡張の内部は検証しない。`source` だけ、または `audio: true` だけを持つ楽器は音楽構造だけを残して演奏対象から外し、その `audio_input` の参照元も外す。`instruments.<id>.sound` と `sections.<name>.notes` は拡張ではなく、表示用の文字列として検証する。
 
 ## 14. フィールド契約・文法一覧
 
