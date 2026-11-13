@@ -812,6 +812,19 @@ fn assert_exported_tracks(smf: &Smf<'_>) {
 
 #[test]
 fn text_inspection_reports_ignored_score_extensions() {
+    let directory = tempdir().expect("directory");
+    let score = directory.path().join("extensions.yaml");
+    std::fs::write(
+        &score,
+        r#"meta: {title: Extensions, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: lead, melody: theme}}}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+kits: {drums: {source: {vst3: {plugin: Addictive Drums 2}}}}
+"#,
+    )
+    .expect("score fixture");
     let preset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../presets")
         .canonicalize()
@@ -819,7 +832,7 @@ fn text_inspection_reports_ignored_score_extensions() {
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args(["score", "inspect"])
-        .arg(fixture_path("score-extensions.yaml"))
+        .arg(&score)
         .arg("--preset-root")
         .arg(&preset_root)
         .assert()

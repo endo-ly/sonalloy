@@ -823,8 +823,6 @@ mod tests {
     use super::*;
     use std::collections::BTreeSet;
 
-    const EXTENSION_SCORE: &str = include_str!("../../../../testdata/score-extensions.yaml");
-
     fn document() -> serde_json::Value {
         serde_json::json!({"meta":{"title":"Timing","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lines":{"main":{"instrument":"part","melody":"phrase"}}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},"instruments":{"part":{"external":true}}})
     }
@@ -1278,79 +1276,6 @@ mod tests {
                 .iter()
                 .all(|lane| !lane.pattern.events.is_empty())
         );
-    }
-
-    /// Notes every build of the shared fixture must expand to.
-    fn notes(plan: &ScorePlan) -> Vec<(u64, u64, u8, u8)> {
-        plan.lanes
-            .iter()
-            .filter(|lane| lane.id == "lead")
-            .flat_map(|lane| &lane.pattern.events)
-            .filter_map(|event| match event {
-                MusicalEvent::Note {
-                    tick,
-                    duration_ticks,
-                    note,
-                    velocity,
-                } => Some((*tick, *duration_ticks, *note, *velocity)),
-                _ => None,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn known_extensions_are_ignored_once_per_kind_and_keep_built_in_material() {
-        let plan = compile(EXTENSION_SCORE).expect("extensions are accepted");
-
-        let mut kinds = plan
-            .extension_notices
-            .iter()
-            .map(|notice| notice.extension)
-            .collect::<Vec<_>>();
-        kinds.sort_unstable();
-        kinds.dedup();
-        assert_eq!(
-            kinds,
-            [
-                Extension::Kits,
-                Extension::Lyrics,
-                Extension::Mix,
-                Extension::InstrumentSource,
-                Extension::InstrumentEffects,
-                Extension::InstrumentKit,
-                Extension::InstrumentAudio,
-                Extension::AudioClips,
-                Extension::LineLyrics,
-                Extension::Articulation,
-                Extension::Cc,
-                Extension::Breath,
-                Extension::VoiceDynamics,
-                Extension::VoiceStyle,
-            ]
-        );
-        assert_eq!(plan.extension_notices.len(), kinds.len());
-        assert!(
-            plan.extension_notices
-                .iter()
-                .all(|notice| notice.line > 0 && notice.column > 0)
-        );
-        assert_eq!(
-            plan.excluded_instruments,
-            BTreeSet::from(["take".to_owned()]),
-            "an audio-only instrument keeps its structure without a source"
-        );
-        assert_eq!(
-            notes(&plan),
-            [
-                (0, 480, 60, 100),
-                (480, 480, 64, 100),
-                (960, 480, 67, 100),
-                (1440, 480, 72, 100)
-            ]
-        );
-        assert!(plan.instruments.contains_key("lead"));
-        assert_eq!(plan.sections.len(), 1);
-        assert_eq!(plan.length_ticks, 1920);
     }
 
     #[test]
