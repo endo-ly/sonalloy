@@ -189,6 +189,9 @@ pub(crate) fn definition_paths(
                 "instrument ids must be unique ignoring ASCII case",
             ));
         }
+        if score.excluded_instruments.contains(id) {
+            continue;
+        }
         let definition = if let Some(preset) = spec.get("preset") {
             let preset = preset.as_str().ok_or_else(|| {
                 failure(
@@ -270,22 +273,30 @@ fn prepare(
     let InstrumentBank {
         instruments: cache,
         ranges,
-        mut diagnostics,
+        diagnostics: instrument_diagnostics,
     } = load_instruments(&score, paths, sample_rate, block_size)?;
+    let mut diagnostics = score
+        .extension_notices
+        .iter()
+        .map(extension_warning)
+        .collect::<Vec<_>>();
+    diagnostics.extend(instrument_diagnostics);
     let mut lanes = score.lanes.clone();
     let timeline = score.timeline.clone();
     for (id, spec) in &score.instruments {
-        if !lanes.iter().any(|lane| &lane.id == id) {
-            let mut pattern = timeline.clone();
-            pattern.events.clear();
-            lanes.push(crate::score::ScoreLane {
-                id: id.clone(),
-                gain_db: spec["gain_db"].as_f64().unwrap_or(0.0),
-                pattern,
-                sources: Vec::new(),
-            });
+        if score.excluded_instruments.contains(id) || lanes.iter().any(|lane| &lane.id == id) {
+            continue;
         }
+        let mut pattern = timeline.clone();
+        pattern.events.clear();
+        lanes.push(crate::score::ScoreLane {
+            id: id.clone(),
+            gain_db: spec["gain_db"].as_f64().unwrap_or(0.0),
+            pattern,
+            sources: Vec::new(),
+        });
     }
+    lanes.retain(|lane| !score.excluded_instruments.contains(&lane.id));
     let compiled_timeline =
         events::Timeline::new(&timeline, f64::from(sample_rate)).map_err(|diagnostics| {
             CliFailure {
@@ -541,6 +552,74 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    fn score_extensions_are_reported_once_and_unsourced_instruments_are_not_played() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let instrument = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json")
+            .canonicalize()
+            .expect("instrument fixture");
+        let score = serde_json::json!({
+            "meta": {"title":"Extensions", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [{"section":"phrase", "bars":1, "tonic":"C", "scale":"ionian"}],
+            "sections": {"phrase": {
+                "notes": "Build from the lead.",
+                "lines": {"main": {"instrument":"lead", "melody":"theme", "lyrics":"verse"}}
+            }},
+            "melodies": {"theme": ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},
+            "instruments": {
+                "lead": {"definition": instrument, "sound": "Bright lead", "effects": [{"use":"delay"}]},
+                "take": {"audio": true},
+                "pad": {"source": {"vst3": {"plugin":"Surge XT"}}}
+            },
+            "lyrics": {"verse": "la la la la"},
+            "mix": {"tracks": {"lead": {"output":"rhythm"}}}
+        });
+        let score_path = directory.path().join("extensions.score.yaml");
+        std::fs::write(
+            &score_path,
+            crate::score::to_yaml(&score).expect("Score YAML"),
+        )
+        .expect("score file");
+
+        let plan =
+            load(&score_path, &InstrumentBindings::default(), 48_000, 257).expect("Score loads");
+
+        assert_eq!(
+            plan.definition
+                .parts
+                .iter()
+                .map(|part| part.id.as_str())
+                .collect::<Vec<_>>(),
+            ["lead"],
+            "only instruments with a built-in source are played"
+        );
+        assert_eq!(
+            plan.score.excluded_instruments,
+            BTreeSet::from(["pad".to_owned(), "take".to_owned()])
+        );
+        let warnings = plan
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == DiagnosticCode::ScoreExtensionIgnored)
+            .count();
+        assert_eq!(warnings, 6, "one warning per ignored extension kind");
+        assert!(
+            plan.diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.severity != DiagnosticSeverity::Error)
+        );
+        assert_eq!(
+            plan.parts[0]
+                .pattern
+                .events
+                .iter()
+                .filter(|event| event.is_note())
+                .count(),
+            4
+        );
+    }
+
+    #[test]
     fn part_window_clips_controls_and_resets_state_at_both_boundaries() {
         let definition_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../testdata/instruments/basic-poly-synth.json")
@@ -777,6 +856,23 @@ mod tests {
             "instruments": {"part":{"external":true}}
         })
     }
+}
+
+fn extension_warning(notice: &crate::score::ExtensionNotice) -> Diagnostic {
+    Diagnostic::warning(
+        DiagnosticCode::ScoreExtensionIgnored,
+        format!("ignoring Score extension: {}", notice.extension.label()),
+    )
+    .with_path(notice.path.clone())
+    .with_detail(
+        serde_json::json!({
+            "source_type": "score",
+            "path": notice.path,
+            "line": notice.line,
+            "column": notice.column
+        })
+        .to_string(),
+    )
 }
 
 fn resolve_audio_dependencies(
@@ -1336,6 +1432,9 @@ fn load_instruments(
     let mut ranges = HashMap::new();
     let mut diagnostics = Vec::new();
     for (id, spec) in &score.instruments {
+        if score.excluded_instruments.contains(id) {
+            continue;
+        }
         let path = &paths[id];
         if !cache.contains_key(path) {
             let (instrument, warnings, metadata) =
