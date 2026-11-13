@@ -81,7 +81,7 @@ endforeach()
 add_dependencies(sonalloy_capi sonalloy-capi-build)
 
 if(MSVC)
-    target_link_libraries(sonalloy_capi INTERFACE bcrypt advapi32 ntdll userenv ws2_32)
+    target_link_libraries(sonalloy_capi INTERFACE bcrypt advapi32 ntdll userenv ws2_32 Synchronization)
 elseif(APPLE)
     target_link_libraries(sonalloy_capi INTERFACE c++)
 elseif(UNIX)

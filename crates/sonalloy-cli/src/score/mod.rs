@@ -390,8 +390,9 @@ pub(crate) fn read(path: &Path) -> std::result::Result<ScorePlan, ReadError> {
 pub(crate) fn compile(text: &str) -> Result<ScorePlan> {
     let mut source = Source::default();
     let result = parse::parse(text, &mut source).and_then(|mut document| {
+        let source_less = source_less_instruments(&document);
         let extension_notices = ignore_extensions(&mut document, &source);
-        resolve::validate_structure(&document, true)?;
+        resolve::validate_structure(&document, &source_less)?;
         lower::lower(&document).map(|mut plan| {
             plan.extension_notices = extension_notices;
             plan
@@ -502,75 +503,171 @@ fn exclude_audio_dependents(plan: &mut ScorePlan) {
     }
 }
 
-/// Returns every known extension site as a source field path, in document order.
-fn extension_sites(document: &Value) -> Vec<(Extension, String)> {
+/// One key or array index in a Score field path.
+enum PathPart {
+    Key(String),
+    Index(usize),
+}
+
+/// A known extension site with its display path and removal path.
+type ExtensionSite = (Extension, String, Vec<PathPart>);
+
+/// Returns every known extension site with its display and removal paths.
+fn extension_sites(document: &Value) -> Vec<ExtensionSite> {
     let mut sites = Vec::new();
+    collect_top_level_sites(document, &mut sites);
+    collect_instrument_sites(document, &mut sites);
+    collect_section_sites(document, &mut sites);
+    collect_macro_sites(document, &mut sites);
+    sites
+}
+
+fn push_site(sites: &mut Vec<ExtensionSite>, extension: Extension, parts: Vec<PathPart>) {
+    let mut path = String::new();
+    for part in &parts {
+        match part {
+            PathPart::Key(key) => {
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(key);
+            }
+            PathPart::Index(index) => {
+                path.push('[');
+                path.push_str(&index.to_string());
+                path.push(']');
+            }
+        }
+    }
+    sites.push((extension, path, parts));
+}
+
+fn collect_top_level_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
     for (key, extension) in [
         ("kits", Extension::Kits),
         ("lyrics", Extension::Lyrics),
         ("mix", Extension::Mix),
     ] {
         if document.get(key).is_some() {
-            sites.push((extension, key.to_owned()));
+            push_site(sites, extension, vec![PathPart::Key(key.to_owned())]);
         }
     }
-    if let Some(instruments) = document.get("instruments").and_then(Value::as_object) {
-        for (id, spec) in instruments {
-            for (key, extension) in [
-                ("source", Extension::InstrumentSource),
-                ("effects", Extension::InstrumentEffects),
-                ("kit", Extension::InstrumentKit),
-                ("audio", Extension::InstrumentAudio),
-            ] {
-                if spec.get(key).is_some() {
-                    sites.push((extension, format!("instruments.{id}.{key}")));
+}
+
+fn collect_instrument_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
+    let Some(instruments) = document.get("instruments").and_then(Value::as_object) else {
+        return;
+    };
+    for (id, spec) in instruments {
+        for (key, extension) in [
+            ("source", Extension::InstrumentSource),
+            ("effects", Extension::InstrumentEffects),
+            ("kit", Extension::InstrumentKit),
+            ("audio", Extension::InstrumentAudio),
+        ] {
+            if spec.get(key).is_some() {
+                push_site(
+                    sites,
+                    extension,
+                    vec![
+                        PathPart::Key("instruments".into()),
+                        PathPart::Key(id.clone()),
+                        PathPart::Key(key.into()),
+                    ],
+                );
+            }
+        }
+    }
+}
+
+fn collect_section_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
+    let Some(sections) = document.get("sections").and_then(Value::as_object) else {
+        return;
+    };
+    for (name, section) in sections {
+        if section.get("audio_clips").is_some() {
+            push_site(
+                sites,
+                Extension::AudioClips,
+                vec![
+                    PathPart::Key("sections".into()),
+                    PathPart::Key(name.clone()),
+                    PathPart::Key("audio_clips".into()),
+                ],
+            );
+        }
+        if let Some(lines) = section.get("lines").and_then(Value::as_object) {
+            for (line, value) in lines {
+                if value.get("lyrics").is_some() {
+                    push_site(
+                        sites,
+                        Extension::LineLyrics,
+                        vec![
+                            PathPart::Key("sections".into()),
+                            PathPart::Key(name.clone()),
+                            PathPart::Key("lines".into()),
+                            PathPart::Key(line.clone()),
+                            PathPart::Key("lyrics".into()),
+                        ],
+                    );
+                }
+            }
+        }
+        if let Some(events) = section.get("events").and_then(Value::as_array) {
+            for (index, event) in events.iter().enumerate() {
+                if let Some(extension) = event
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .and_then(Extension::event)
+                {
+                    push_site(
+                        sites,
+                        extension,
+                        vec![
+                            PathPart::Key("sections".into()),
+                            PathPart::Key(name.clone()),
+                            PathPart::Key("events".into()),
+                            PathPart::Index(index),
+                        ],
+                    );
                 }
             }
         }
     }
-    if let Some(sections) = document.get("sections").and_then(Value::as_object) {
-        for (name, section) in sections {
-            if section.get("audio_clips").is_some() {
-                sites.push((
-                    Extension::AudioClips,
-                    format!("sections.{name}.audio_clips"),
-                ));
-            }
-            if let Some(lines) = section.get("lines").and_then(Value::as_object) {
-                for (line, value) in lines {
-                    if value.get("lyrics").is_some() {
-                        sites.push((
-                            Extension::LineLyrics,
-                            format!("sections.{name}.lines.{line}.lyrics"),
-                        ));
-                    }
-                }
-            }
-            if let Some(events) = section.get("events").and_then(Value::as_array) {
-                for (index, event) in events.iter().enumerate() {
-                    if let Some(extension) = event
-                        .get("kind")
-                        .and_then(Value::as_str)
-                        .and_then(Extension::event)
-                    {
-                        sites.push((extension, format!("sections.{name}.events[{index}]")));
-                    }
-                }
-            }
+}
+
+fn collect_macro_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
+    let Some(macros) = document.get("macros").and_then(Value::as_object) else {
+        return;
+    };
+    for (name, event) in macros {
+        if let Some(extension) = event
+            .get("kind")
+            .and_then(Value::as_str)
+            .and_then(Extension::event)
+        {
+            push_site(
+                sites,
+                extension,
+                vec![PathPart::Key("macros".into()), PathPart::Key(name.clone())],
+            );
         }
     }
-    if let Some(macros) = document.get("macros").and_then(Value::as_object) {
-        for (name, event) in macros {
-            if let Some(extension) = event
-                .get("kind")
-                .and_then(Value::as_str)
-                .and_then(Extension::event)
-            {
-                sites.push((extension, format!("macros.{name}")));
-            }
-        }
-    }
-    sites
+}
+
+/// Returns the instruments whose built-in source is supplied by an extension.
+fn source_less_instruments(document: &Value) -> BTreeSet<String> {
+    document
+        .get("instruments")
+        .and_then(Value::as_object)
+        .map(|instruments| {
+            instruments
+                .iter()
+                .filter(|(_, spec)| spec.get("source").is_some() || spec.get("audio").is_some())
+                .map(|(id, _)| id.clone())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Removes every known extension site and reports each kind once.
@@ -578,7 +675,7 @@ fn ignore_extensions(document: &mut Value, source: &Source) -> Vec<ExtensionNoti
     let sites = extension_sites(document);
     let mut seen = BTreeSet::new();
     let mut notices = Vec::new();
-    for (extension, path) in &sites {
+    for (extension, path, _) in &sites {
         if seen.insert(*extension) {
             let (line, column) = source.positions.get(path).copied().unwrap_or_default();
             notices.push(ExtensionNotice {
@@ -589,43 +686,40 @@ fn ignore_extensions(document: &mut Value, source: &Source) -> Vec<ExtensionNoti
             });
         }
     }
-    for (_, path) in sites.into_iter().rev() {
+    for (_, _, path) in sites.into_iter().rev() {
         remove_site(document, &path);
     }
     notices
 }
 
-fn remove_site(document: &mut Value, path: &str) {
-    if let Some((parent, index)) = path.rsplit_once('[') {
-        if let Some(index) = index
-            .strip_suffix(']')
-            .and_then(|index| index.parse::<usize>().ok())
-        {
-            if let Some(list) = value_at_mut(document, parent).and_then(Value::as_array_mut) {
-                if index < list.len() {
-                    list.remove(index);
-                }
-            }
-            return;
-        }
-    }
-    match path.rsplit_once('.') {
-        Some((parent, key)) => {
-            if let Some(map) = value_at_mut(document, parent).and_then(Value::as_object_mut) {
+fn remove_site(document: &mut Value, path: &[PathPart]) {
+    let Some((last, parent)) = path.split_last() else {
+        return;
+    };
+    let Some(parent) = value_at_mut(document, parent) else {
+        return;
+    };
+    match last {
+        PathPart::Key(key) => {
+            if let Some(map) = parent.as_object_mut() {
                 map.remove(key);
             }
         }
-        None => {
-            if let Some(map) = document.as_object_mut() {
-                map.remove(path);
+        PathPart::Index(index) => {
+            if let Some(list) = parent.as_array_mut()
+                && *index < list.len()
+            {
+                list.remove(*index);
             }
         }
     }
 }
 
-fn value_at_mut<'a>(document: &'a mut Value, path: &str) -> Option<&'a mut Value> {
-    path.split('.')
-        .try_fold(document, |value, key| value.get_mut(key))
+fn value_at_mut<'a>(document: &'a mut Value, path: &[PathPart]) -> Option<&'a mut Value> {
+    path.iter().try_fold(document, |value, part| match part {
+        PathPart::Key(key) => value.get_mut(key),
+        PathPart::Index(index) => value.get_mut(*index),
+    })
 }
 
 /// Convert finite decibels to a finite linear gain, returning `None` on overflow.
@@ -1261,21 +1355,27 @@ mod tests {
 
     #[test]
     fn unknown_keys_and_unknown_event_kinds_remain_errors() {
-        let unknown_key = EXTENSION_SCORE.replace("    sound:", "    voices: 8\n    sound:");
+        let unknown_key = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: lead, melody: theme}}}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead, voices: 8}}
+"#;
         assert!(
-            compile(&unknown_key)
+            compile(unknown_key)
                 .expect_err("unknown instrument keys must fail")
                 .path
                 .starts_with("instruments."),
             "unknown keys report their field path"
         );
 
-        let unknown_event = EXTENSION_SCORE.replace(
-            "{kind: breath, instrument: lead, at: {bar: 1, step: 9}, duration_steps: 2}",
-            "{kind: glissando, instrument: lead, at: {bar: 1, step: 9}, duration_steps: 2}",
-        );
+        let unknown_event = r"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {events: [{kind: glissando, instrument: lead, at: {bar: 1, step: 1}}]}}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+";
         assert_eq!(
-            compile(&unknown_event)
+            compile(unknown_event)
                 .expect_err("unknown event kinds must fail")
                 .path,
             "sections.verse.events[0].kind"
@@ -1283,32 +1383,87 @@ mod tests {
     }
 
     #[test]
-    fn source_only_and_audio_instruments_are_excluded_but_references_stay_valid() {
-        let yaml = EXTENSION_SCORE.replace(
-            "  lead:\n    preset: LEAD/001-analog-saw-lead\n",
-            "  lead:\n",
-        );
-        let plan = compile(&yaml).expect("a source-only instrument is accepted");
+    fn source_only_instruments_are_accepted_but_a_missing_source_is_not() {
+        let source_only = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: lead, melody: theme}}}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {source: {vst3: {plugin: Surge XT}}}}
+"#;
+        let plan = compile(source_only).expect("a source-only instrument is accepted");
 
         assert_eq!(
             plan.excluded_instruments,
-            BTreeSet::from(["lead".to_owned(), "take".to_owned()])
+            BTreeSet::from(["lead".to_owned()])
         );
         assert!(plan.instruments.contains_key("lead"));
         assert!(plan.lanes.iter().any(|lane| lane.id == "lead"));
+
+        let missing_source =
+            source_only.replace("{source: {vst3: {plugin: Surge XT}}}", "{gain_db: -3}");
+        assert_eq!(
+            compile(&missing_source)
+                .expect_err("an instrument without a source is rejected")
+                .path,
+            "instruments.lead"
+        );
     }
 
     #[test]
     fn audio_inputs_whose_source_is_excluded_are_excluded_too() {
-        let yaml = EXTENSION_SCORE.replace(
-            "  take: {audio: true}\n",
-            "  take: {audio: true}\n  room: {preset: ROOM/001-plate, audio_input: take}\n",
-        );
-        let plan = compile(&yaml).expect("routing to an excluded source is diagnosed by exclusion");
+        let yaml = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: room, melody: theme}}}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments:
+  take: {audio: true}
+  room: {preset: ROOM/001-plate, audio_input: take}
+"#;
+        let plan = compile(yaml).expect("routing to an excluded source is diagnosed by exclusion");
 
         assert!(
             plan.excluded_instruments.contains("room"),
             "an instrument without a played source is excluded from playback"
+        );
+    }
+
+    #[test]
+    fn dotted_identifiers_remove_only_their_own_extension_sites() {
+        let yaml = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse.1, bars: 1, tonic: C}]
+sections:
+  verse.1:
+    audio_clips: [{instrument: take, file: audio/take.wav, at: {bar: 1, step: 1}}]
+    lines:
+      main.1: {instrument: lead.v1, melody: theme, lyrics: [la]}
+    events:
+      - {kind: cc, instrument: lead.v1, number: 11, value: 64, at: {bar: 1, step: 1}}
+macros:
+  fill.1: {kind: breath, instrument: lead.v1, at: {bar: 1, step: 1}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments:
+  lead.v1: {preset: LEAD/001-analog-saw-lead, source: {vst3: {plugin: Surge XT}}}
+"#;
+        let plan = compile(yaml).expect("dotted identifiers keep their own fields");
+
+        assert_eq!(
+            plan.instruments["lead.v1"]["preset"],
+            Value::String("LEAD/001-analog-saw-lead".into())
+        );
+        let paths = plan
+            .extension_notices
+            .iter()
+            .map(|notice| notice.path.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            [
+                "instruments.lead.v1.source",
+                "sections.verse.1.audio_clips",
+                "sections.verse.1.lines.main.1.lyrics",
+                "sections.verse.1.events[0]",
+                "macros.fill.1",
+            ]
         );
     }
 }
