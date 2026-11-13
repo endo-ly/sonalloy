@@ -18,7 +18,7 @@
 10. [演奏イベント・マクロ・優先規則](#10-演奏イベントマクロ優先規則)
 11. [プリセット試聴・プレビュー・CLI境界](#11-プリセット試聴プレビューcli境界)
 12. [解析・診断](#12-解析診断)
-13. [既知の拡張](#13-既知の拡張)
+13. [Sonalloy が解釈しない項目](#13-sonalloy-が解釈しない項目)
 14. [フィールド契約・文法一覧](#14-フィールド契約文法一覧)
 
 ## 1. 目的と基本原則
@@ -52,7 +52,7 @@
 | `macros` | 再利用可能な、構造化された演出処理 | 任意 |
 | `instruments` | 識別子、プリセット参照、音量、音域、奏法とノリ | 必須 |
 | `transitions` / `notes` | 転調意図・制作ノート。再生に影響しない | 任意 |
-| `kits` / `lyrics` / `mix` | 既知の拡張。Sonalloy では無視する（13章） | 任意 |
+| `kits` / `lyrics` / `mix` | Sonalloy が解釈しない項目。無視する（13章） | 任意 |
 
 `meta` は以下の定義を使う。
 
@@ -502,7 +502,7 @@ sections:
 
 ### 8.1 楽器の定義
 
-`instruments.<id>`は、`preset`、`definition`、`external: true`のうち**ちょうど1種類**を指定する。同時指定・省略をエラーとする。ただし既知の拡張（13章）だけを持つ楽器は省略として扱い、Sonalloy はその楽器を演奏しない。
+`instruments.<id>`は、`preset`、`definition`、`external: true`のうち**ちょうど1種類**を指定する。同時指定・省略をエラーとする。ただし Sonalloy が解釈しない項目（13章）だけを持つ楽器は省略として扱い、Sonalloy はその楽器を演奏しない。
 
 ```yaml
 instruments:
@@ -654,29 +654,29 @@ form:
 
 1. **構文**：YAML 1.2相当。重複キー・未知フィールド・カスタムTag・YAMLエイリアス・マージキー・非文字列Key・曖昧な暗黙キャストはエラーとする。分数は`"p/q"`で記述し、`1'`や`#4`のようにYAMLの型解釈やコメント記号と衝突する値は引用文字列にする。
 2. **参照**：`form.section`、楽器ID、素材、`from`、`macro`、`definition`、`preset`、`audio_input`、`counter.follows`の存在と循環を検証する。`key`、`mode`、`chord_type`のような別名や自然言語の演奏指示は受理しない。楽器IDはStemのファイル名になるため、1〜64文字のASCII英数字・`.`・`_`・`-`で構成して英数字で始め、大文字小文字だけが異なるIDやWindowsの予約名（`con`など）はエラーとする。
-3. **診断**：診断は`path`（Score YAML上の階層）、`section`、`bar`/`step`、入力行/列、`actual`、`expected`を持ち、`warning`と`error`を区別する。Errorがあれば演奏を生成しない。無視した拡張は`SCORE_EXTENSION_IGNORED`の警告として1種類につき1件返す。
+3. **診断**：診断は`path`（Score YAML上の階層）、`section`、`bar`/`step`、入力行/列、`actual`、`expected`を持ち、`warning`と`error`を区別する。Errorがあれば演奏を生成しない。読み飛ばした項目は`SCORE_EXTENSION_IGNORED`の警告として1種類につき1件返す。
 
-## 13. 既知の拡張
+## 13. Sonalloy が解釈しない項目
 
-Sonalloy が解釈しない既知のキーとイベント種別は読み飛ばし、種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` 警告を返す。列挙にないキーとイベント種別はエラーとする。
+Score には、Sonalloy 以外のツールが独自に使う項目が含まれることがある。Sonalloy は次のキーとイベント種別を演奏に使わず、読み飛ばしたうえで種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` 警告を返す。列挙にないキーとイベント種別は、入力ミスを黙って無視しないためエラーとする。
 
 - キー: `kits`、`lyrics`、`mix`、`instruments.<id>.source`、`instruments.<id>.effects`、`instruments.<id>.kit`、`instruments.<id>.audio`、`sections.<name>.audio_clips`、`sections.<name>.lines.<line>.lyrics`
 - イベント種別: `articulation`、`cc`、`breath`、`voice_dynamics`、`voice_style`
 
-拡張の内部は検証しない。`source` だけ、または `audio: true` だけを持つ楽器は音楽構造だけを残して演奏対象から外し、その `audio_input` の参照元も外す。`instruments.<id>.sound` と `sections.<name>.notes` は拡張ではなく、表示用の文字列として検証する。
+読み飛ばした項目の内部は検証しない。`source` だけ、または `audio: true` だけを持つ楽器は音楽構造だけを残して演奏対象から外し、その `audio_input` の参照元も外す。`instruments.<id>.sound` と `sections.<name>.notes` は読み飛ばしの対象ではなく、表示用の文字列として検証する。
 
 ## 14. フィールド契約・文法一覧
 
 | 場所 | 許可された主要キー | 解釈 |
 |---|---|---|
-| ルート | `meta,form,time_changes,sections,melodies,scale_definitions,drums,comp,arps,counters,macros,instruments,transitions,notes` | 全て定義済み、追加は禁止。`kits,lyrics,mix` は無視する拡張 |
+| ルート | `meta,form,time_changes,sections,melodies,scale_definitions,drums,comp,arps,counters,macros,instruments,transitions,notes` | 全て定義済み、追加は禁止。`kits,lyrics,mix` は解釈しない |
 | `meta` | `title,bpm,meter,tuning,reference_octave,gate,swing,master,fade_out_seconds` | `tuning: 12edo`だけ受理 |
 | `meta.swing` / `form[].swing` / `instruments.<id>.swing` | `subdivision,ratio` | グリッドのスウィング |
 | `meta.master` | `target_lufs,max_true_peak_db,target_lra_lu` | Master/計測の設定 |
 | `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters,swing` | 曲中の出現と時間正本。`section`,`bars`,`tonic`は必須で、`scale`は任意（省略時はスケール未指定） |
 | `time_changes[]` | `at_quarters,bpm,over_quarters` | 曲頭からのテンポ変更と漸次変化 |
-| `sections.<name>` | `from,chords,chord_changes,lines,drums,comp,pad,arp,counter,placements,add_placements,events,velocity,part_gains,notes` | 1セクションの演奏宣言。`notes`は表示用の文字列、`audio_clips`は無視する拡張 |
-| `sections.<name>.lines.<line>` | `instrument,melody,slice_items,loop,register,tonic,transpose,gain_db` | 旋律パート。`lyrics`は無視する拡張 |
+| `sections.<name>` | `from,chords,chord_changes,lines,drums,comp,pad,arp,counter,placements,add_placements,events,velocity,part_gains,notes` | 1セクションの演奏宣言。`notes`は表示用の文字列、`audio_clips`は解釈しない |
+| `sections.<name>.lines.<line>` | `instrument,melody,slice_items,loop,register,tonic,transpose,gain_db` | 旋律パート。`lyrics`は解釈しない |
 | `sections.<name>.counter` | `instrument,pattern,follows` | 対旋律の演奏 |
 | `sections.<name>.part_gains` | `instrument_id: number` | セクション内の楽器別Gain（dB。楽器Gainに加算） |
 | `melodies` | 要素のリスト、`{items|from, replace, relative_to, pickup_steps}`、名前空間辞書 | 相対度数と再利用 |
@@ -686,7 +686,7 @@ Sonalloy が解釈しない既知のキーとイベント種別は読み飛ば�
 | `when` | `odd,even,every,bars` のいずれか1つ | 小節条件 |
 | `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp。`order`のセルは非負整数、`.`（休符）、`-`（継続） |
 | `counters.<name>` | `when,cell` | 無音拍に置く対旋律。`when`は`silent_full_beat` |
-| `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,sound,gate,articulations,swing,timing_offset_steps,voicing,voicing_floor_midi,voicing_ceiling_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位・奏法・ノリ。`source,effects,kit,audio`は無視する拡張 |
+| `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,sound,gate,articulations,swing,timing_offset_steps,voicing,voicing_floor_midi,voicing_ceiling_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位・奏法・ノリ。`source,effects,kit,audio`は解釈しない |
 | `instruments.<id>.articulations` | `accent{velocity}`,`staccato{gate,velocity}`,`tenuto{gate,velocity}` | 奏法記号の効き方 |
 | `placements[]` | `instrument,at,melody/degree/chord,velocity,duration_steps,duration_quarters,transpose,gain_db,tonic,register,mark,slice_steps,take_notes,voicing,voicing_floor_midi,add_root_degree` | 明示的発音 |
 | `add_placements[]` | `placements[]`と同じ | 継承時に配置リストの末尾へ追記 |

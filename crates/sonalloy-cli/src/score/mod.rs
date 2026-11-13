@@ -68,7 +68,7 @@ impl Extension {
     }
 }
 
-/// One known extension site that the analysis ignored.
+/// One extension site that the analysis ignored.
 #[derive(Clone, Debug)]
 pub(crate) struct ExtensionNotice {
     pub(crate) path: String,
@@ -509,10 +509,10 @@ enum PathPart {
     Index(usize),
 }
 
-/// A known extension site with its display path and removal path.
+/// An extension site with its display path and removal path.
 type ExtensionSite = (Extension, String, Vec<PathPart>);
 
-/// Returns every known extension site with its display and removal paths.
+/// Returns every extension site with its display and removal paths.
 fn extension_sites(document: &Value) -> Vec<ExtensionSite> {
     let mut sites = Vec::new();
     collect_top_level_sites(document, &mut sites);
@@ -670,7 +670,7 @@ fn source_less_instruments(document: &Value) -> BTreeSet<String> {
         .unwrap_or_default()
 }
 
-/// Removes every known extension site and reports each kind once.
+/// Removes every extension site and reports each kind once.
 fn ignore_extensions(document: &mut Value, source: &Source) -> Vec<ExtensionNotice> {
     let sites = extension_sites(document);
     let mut seen = BTreeSet::new();
