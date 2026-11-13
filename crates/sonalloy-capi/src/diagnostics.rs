@@ -61,6 +61,7 @@ fn code_id(code: DiagnosticCode) -> u32 {
         DiagnosticCode::InvalidStepDuration => 52,
         DiagnosticCode::TraceLimitExceeded => 53,
         DiagnosticCode::AudioInputRequired => 55,
+        DiagnosticCode::ScoreExtensionIgnored => 56,
     }
 }
 

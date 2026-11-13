@@ -125,6 +125,9 @@ pub enum DiagnosticCode {
     /// Non-fatal compiler adjustment.
     #[serde(rename = "COMPILE_WARNING")]
     CompileWarning,
+    /// A known Score extension was ignored.
+    #[serde(rename = "SCORE_EXTENSION_IGNORED")]
+    ScoreExtensionIgnored,
     /// A filter cutoff was limited by the process sample rate.
     #[serde(rename = "FILTER_CUTOFF_CLAMPED")]
     FilterCutoffClamped,

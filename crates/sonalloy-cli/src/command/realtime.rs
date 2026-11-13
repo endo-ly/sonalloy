@@ -281,20 +281,27 @@ fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
     let selected = (|| {
         let score = crate::score::read(&args.score)?;
         let paths = crate::performance::definition_paths(&score, &args.score, &args.bindings)?;
-        let id = match &args.part {
-            Some(id) => id.clone(),
-            None if score.instruments.len() == 1 => score
+        let id = if let Some(id) = &args.part {
+            id.clone()
+        } else {
+            let playable = score
                 .instruments
                 .keys()
-                .next()
-                .expect("one instrument")
-                .clone(),
-            None => {
+                .filter(|id| !score.excluded_instruments.contains(*id))
+                .collect::<Vec<_>>();
+            if let [id] = playable.as_slice() {
+                (*id).clone()
+            } else {
                 return Err(score_selection_failure(
                     "select --part for a score with multiple instruments",
                 ));
             }
         };
+        if score.excluded_instruments.contains(&id) {
+            return Err(score_selection_failure(
+                "instrument has no built-in source in this Score",
+            ));
+        }
         if !score.instruments.contains_key(&id) {
             return Err(score_selection_failure("unknown --part instrument"));
         }

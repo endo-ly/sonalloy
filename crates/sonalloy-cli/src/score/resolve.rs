@@ -241,7 +241,7 @@ fn melody_items(
 }
 
 #[allow(clippy::too_many_lines)]
-pub(super) fn validate_structure(doc: &Value) -> Result<()> {
+pub(super) fn validate_structure(doc: &Value, allow_source_less_instruments: bool) -> Result<()> {
     fields(
         doc,
         &[
@@ -342,7 +342,10 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
     let sections = required(doc, "sections", "")?;
     validate_sections(sections)?;
     validate_part_gains(sections, required(doc, "instruments", "")?)?;
-    validate_instruments(required(doc, "instruments", "")?)?;
+    validate_instruments(
+        required(doc, "instruments", "")?,
+        allow_source_less_instruments,
+    )?;
     validate_materials(doc)?;
     if let Some(notes) = doc.get("notes") {
         string(notes, "notes")?;
@@ -608,9 +611,13 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 "events",
                 "velocity",
                 "part_gains",
+                "notes",
             ],
             &path,
         )?;
+        if let Some(notes) = section.get("notes") {
+            string(notes, &format!("{path}.notes"))?;
+        }
         for field in ["pad", "arp", "counter"] {
             if let Some(v) = section.get(field) {
                 let allowed = if field == "counter" {
@@ -761,7 +768,8 @@ fn validate_articulations(v: &Value, path: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_instruments(instruments: &Value) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+fn validate_instruments(instruments: &Value, allow_source_less: bool) -> Result<()> {
     if object(instruments, "instruments")?.is_empty() {
         return Err(Error::new(
             "instruments",
@@ -778,6 +786,7 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
                 "gain_db",
                 "pan",
                 "role",
+                "sound",
                 "voicing_floor_midi",
                 "voicing_ceiling_midi",
                 "articulations",
@@ -796,13 +805,19 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
             .iter()
             .filter(|key| v.get(**key).is_some())
             .count();
+        let path = format!("instruments.{name}");
+        if let Some(value) = v.get("sound") {
+            string(value, &format!("{path}.sound"))?;
+        }
+        if count == 0 && allow_source_less {
+            continue;
+        }
         if count != 1 || v.get("external").is_some_and(|v| v != &Value::Bool(true)) {
             return Err(Error::new(
                 format!("instruments.{name}"),
                 "expected exactly one of preset, definition, or external: true",
             ));
         }
-        let path = format!("instruments.{name}");
         if let Some(value) = v.get("swing") {
             super::time::Swing::parse(value, &format!("{path}.swing"))?;
         }

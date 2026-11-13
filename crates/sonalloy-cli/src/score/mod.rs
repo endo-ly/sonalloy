@@ -5,7 +5,7 @@ mod resolve;
 mod syntax;
 mod time;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use num_traits::ToPrimitive;
@@ -16,6 +16,66 @@ use events::{MeterChange, MusicalEvent, PerformanceEvents, TempoChange};
 use time::q;
 
 type Result<T> = std::result::Result<T, Error>;
+
+/// A known Score extension that Sonalloy ignores for built-in playback.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Extension {
+    Kits,
+    Lyrics,
+    Mix,
+    InstrumentSource,
+    InstrumentEffects,
+    InstrumentKit,
+    InstrumentAudio,
+    AudioClips,
+    LineLyrics,
+    Articulation,
+    Cc,
+    Breath,
+    VoiceDynamics,
+    VoiceStyle,
+}
+
+impl Extension {
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Kits => "kits",
+            Self::Lyrics => "lyrics",
+            Self::Mix => "mix",
+            Self::InstrumentSource => "instrument source",
+            Self::InstrumentEffects => "instrument effects",
+            Self::InstrumentKit => "instrument kit",
+            Self::InstrumentAudio => "instrument audio",
+            Self::AudioClips => "section audio clips",
+            Self::LineLyrics => "line lyrics",
+            Self::Articulation => "articulation event",
+            Self::Cc => "cc event",
+            Self::Breath => "breath event",
+            Self::VoiceDynamics => "voice dynamics event",
+            Self::VoiceStyle => "voice style event",
+        }
+    }
+
+    fn event(kind: &str) -> Option<Self> {
+        match kind {
+            "articulation" => Some(Self::Articulation),
+            "cc" => Some(Self::Cc),
+            "breath" => Some(Self::Breath),
+            "voice_dynamics" => Some(Self::VoiceDynamics),
+            "voice_style" => Some(Self::VoiceStyle),
+            _ => None,
+        }
+    }
+}
+
+/// One known extension site that the analysis ignored.
+#[derive(Clone, Debug)]
+pub(crate) struct ExtensionNotice {
+    pub(crate) path: String,
+    pub(crate) extension: Extension,
+    pub(crate) line: usize,
+    pub(crate) column: usize,
+}
 
 #[derive(Debug, Default)]
 struct ErrorContext {
@@ -277,6 +337,10 @@ pub(crate) struct ScorePlan {
     pub(crate) fade_out_seconds: f64,
     pub(crate) timeline: PerformanceEvents,
     pub(crate) part_windows: Vec<PartWindow>,
+    /// Known extensions ignored while expanding this Score.
+    pub(crate) extension_notices: Vec<ExtensionNotice>,
+    /// Instruments without a built-in source that built-in playback skips.
+    pub(crate) excluded_instruments: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -325,9 +389,13 @@ pub(crate) fn read(path: &Path) -> std::result::Result<ScorePlan, ReadError> {
 /// Returns a source-located error for invalid syntax, structure, or musical content.
 pub(crate) fn compile(text: &str) -> Result<ScorePlan> {
     let mut source = Source::default();
-    let result = parse::parse(text, &mut source).and_then(|document| {
-        resolve::validate_structure(&document)?;
-        lower::lower(&document)
+    let result = parse::parse(text, &mut source).and_then(|mut document| {
+        let extension_notices = ignore_extensions(&mut document, &source);
+        resolve::validate_structure(&document, true)?;
+        lower::lower(&document).map(|mut plan| {
+            plan.extension_notices = extension_notices;
+            plan
+        })
     });
     result
         .map_err(|error| error.locate(&source))
@@ -397,8 +465,167 @@ pub(crate) fn compile(text: &str) -> Result<ScorePlan> {
                 }
             }
             plan.source = source;
+            plan.excluded_instruments = plan
+                .instruments
+                .iter()
+                .filter(|(_, spec)| {
+                    !["preset", "definition", "external"]
+                        .iter()
+                        .any(|key| spec.get(*key).is_some())
+                })
+                .map(|(id, _)| id.clone())
+                .collect();
+            exclude_audio_dependents(&mut plan);
             plan
         })
+}
+
+/// Excludes instruments whose external audio input has no played source.
+fn exclude_audio_dependents(plan: &mut ScorePlan) {
+    loop {
+        let mut changed = false;
+        for (id, spec) in &plan.instruments {
+            if plan.excluded_instruments.contains(id) {
+                continue;
+            }
+            let missing = spec
+                .get("audio_input")
+                .and_then(Value::as_str)
+                .is_some_and(|input| plan.excluded_instruments.contains(input));
+            if missing {
+                changed |= plan.excluded_instruments.insert(id.clone());
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+}
+
+/// Returns every known extension site as a source field path, in document order.
+fn extension_sites(document: &Value) -> Vec<(Extension, String)> {
+    let mut sites = Vec::new();
+    for (key, extension) in [
+        ("kits", Extension::Kits),
+        ("lyrics", Extension::Lyrics),
+        ("mix", Extension::Mix),
+    ] {
+        if document.get(key).is_some() {
+            sites.push((extension, key.to_owned()));
+        }
+    }
+    if let Some(instruments) = document.get("instruments").and_then(Value::as_object) {
+        for (id, spec) in instruments {
+            for (key, extension) in [
+                ("source", Extension::InstrumentSource),
+                ("effects", Extension::InstrumentEffects),
+                ("kit", Extension::InstrumentKit),
+                ("audio", Extension::InstrumentAudio),
+            ] {
+                if spec.get(key).is_some() {
+                    sites.push((extension, format!("instruments.{id}.{key}")));
+                }
+            }
+        }
+    }
+    if let Some(sections) = document.get("sections").and_then(Value::as_object) {
+        for (name, section) in sections {
+            if section.get("audio_clips").is_some() {
+                sites.push((
+                    Extension::AudioClips,
+                    format!("sections.{name}.audio_clips"),
+                ));
+            }
+            if let Some(lines) = section.get("lines").and_then(Value::as_object) {
+                for (line, value) in lines {
+                    if value.get("lyrics").is_some() {
+                        sites.push((
+                            Extension::LineLyrics,
+                            format!("sections.{name}.lines.{line}.lyrics"),
+                        ));
+                    }
+                }
+            }
+            if let Some(events) = section.get("events").and_then(Value::as_array) {
+                for (index, event) in events.iter().enumerate() {
+                    if let Some(extension) = event
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        .and_then(Extension::event)
+                    {
+                        sites.push((extension, format!("sections.{name}.events[{index}]")));
+                    }
+                }
+            }
+        }
+    }
+    if let Some(macros) = document.get("macros").and_then(Value::as_object) {
+        for (name, event) in macros {
+            if let Some(extension) = event
+                .get("kind")
+                .and_then(Value::as_str)
+                .and_then(Extension::event)
+            {
+                sites.push((extension, format!("macros.{name}")));
+            }
+        }
+    }
+    sites
+}
+
+/// Removes every known extension site and reports each kind once.
+fn ignore_extensions(document: &mut Value, source: &Source) -> Vec<ExtensionNotice> {
+    let sites = extension_sites(document);
+    let mut seen = BTreeSet::new();
+    let mut notices = Vec::new();
+    for (extension, path) in &sites {
+        if seen.insert(*extension) {
+            let (line, column) = source.positions.get(path).copied().unwrap_or_default();
+            notices.push(ExtensionNotice {
+                path: path.clone(),
+                extension: *extension,
+                line,
+                column,
+            });
+        }
+    }
+    for (_, path) in sites.into_iter().rev() {
+        remove_site(document, &path);
+    }
+    notices
+}
+
+fn remove_site(document: &mut Value, path: &str) {
+    if let Some((parent, index)) = path.rsplit_once('[') {
+        if let Some(index) = index
+            .strip_suffix(']')
+            .and_then(|index| index.parse::<usize>().ok())
+        {
+            if let Some(list) = value_at_mut(document, parent).and_then(Value::as_array_mut) {
+                if index < list.len() {
+                    list.remove(index);
+                }
+            }
+            return;
+        }
+    }
+    match path.rsplit_once('.') {
+        Some((parent, key)) => {
+            if let Some(map) = value_at_mut(document, parent).and_then(Value::as_object_mut) {
+                map.remove(key);
+            }
+        }
+        None => {
+            if let Some(map) = document.as_object_mut() {
+                map.remove(path);
+            }
+        }
+    }
+}
+
+fn value_at_mut<'a>(document: &'a mut Value, path: &str) -> Option<&'a mut Value> {
+    path.split('.')
+        .try_fold(document, |value, key| value.get_mut(key))
 }
 
 /// Convert finite decibels to a finite linear gain, returning `None` on overflow.
@@ -499,6 +726,11 @@ pub(crate) fn to_yaml(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    const EXTENSION_SCORE: &str = include_str!("../../../../testdata/score-extensions.yaml");
+
     fn document() -> serde_json::Value {
         serde_json::json!({"meta":{"title":"Timing","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lines":{"main":{"instrument":"part","melody":"phrase"}}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},"instruments":{"part":{"external":true}}})
     }
@@ -953,7 +1185,130 @@ mod tests {
                 .all(|lane| !lane.pattern.events.is_empty())
         );
     }
-}
 
-#[cfg(test)]
-mod expression_tests;
+    /// Notes every build of the shared fixture must expand to.
+    fn notes(plan: &ScorePlan) -> Vec<(u64, u64, u8, u8)> {
+        plan.lanes
+            .iter()
+            .filter(|lane| lane.id == "lead")
+            .flat_map(|lane| &lane.pattern.events)
+            .filter_map(|event| match event {
+                MusicalEvent::Note {
+                    tick,
+                    duration_ticks,
+                    note,
+                    velocity,
+                } => Some((*tick, *duration_ticks, *note, *velocity)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn known_extensions_are_ignored_once_per_kind_and_keep_built_in_material() {
+        let plan = compile(EXTENSION_SCORE).expect("extensions are accepted");
+
+        let mut kinds = plan
+            .extension_notices
+            .iter()
+            .map(|notice| notice.extension)
+            .collect::<Vec<_>>();
+        kinds.sort_unstable();
+        kinds.dedup();
+        assert_eq!(
+            kinds,
+            [
+                Extension::Kits,
+                Extension::Lyrics,
+                Extension::Mix,
+                Extension::InstrumentSource,
+                Extension::InstrumentEffects,
+                Extension::InstrumentKit,
+                Extension::InstrumentAudio,
+                Extension::AudioClips,
+                Extension::LineLyrics,
+                Extension::Articulation,
+                Extension::Cc,
+                Extension::Breath,
+                Extension::VoiceDynamics,
+                Extension::VoiceStyle,
+            ]
+        );
+        assert_eq!(plan.extension_notices.len(), kinds.len());
+        assert!(
+            plan.extension_notices
+                .iter()
+                .all(|notice| notice.line > 0 && notice.column > 0)
+        );
+        assert_eq!(
+            plan.excluded_instruments,
+            BTreeSet::from(["take".to_owned()]),
+            "an audio-only instrument keeps its structure without a source"
+        );
+        assert_eq!(
+            notes(&plan),
+            [
+                (0, 480, 60, 100),
+                (480, 480, 64, 100),
+                (960, 480, 67, 100),
+                (1440, 480, 72, 100)
+            ]
+        );
+        assert!(plan.instruments.contains_key("lead"));
+        assert_eq!(plan.sections.len(), 1);
+        assert_eq!(plan.length_ticks, 1920);
+    }
+
+    #[test]
+    fn unknown_keys_and_unknown_event_kinds_remain_errors() {
+        let unknown_key = EXTENSION_SCORE.replace("    sound:", "    voices: 8\n    sound:");
+        assert!(
+            compile(&unknown_key)
+                .expect_err("unknown instrument keys must fail")
+                .path
+                .starts_with("instruments."),
+            "unknown keys report their field path"
+        );
+
+        let unknown_event = EXTENSION_SCORE.replace(
+            "{kind: breath, instrument: lead, at: {bar: 1, step: 9}, duration_steps: 2}",
+            "{kind: glissando, instrument: lead, at: {bar: 1, step: 9}, duration_steps: 2}",
+        );
+        assert_eq!(
+            compile(&unknown_event)
+                .expect_err("unknown event kinds must fail")
+                .path,
+            "sections.verse.events[0].kind"
+        );
+    }
+
+    #[test]
+    fn source_only_and_audio_instruments_are_excluded_but_references_stay_valid() {
+        let yaml = EXTENSION_SCORE.replace(
+            "  lead:\n    preset: LEAD/001-analog-saw-lead\n",
+            "  lead:\n",
+        );
+        let plan = compile(&yaml).expect("a source-only instrument is accepted");
+
+        assert_eq!(
+            plan.excluded_instruments,
+            BTreeSet::from(["lead".to_owned(), "take".to_owned()])
+        );
+        assert!(plan.instruments.contains_key("lead"));
+        assert!(plan.lanes.iter().any(|lane| lane.id == "lead"));
+    }
+
+    #[test]
+    fn audio_inputs_whose_source_is_excluded_are_excluded_too() {
+        let yaml = EXTENSION_SCORE.replace(
+            "  take: {audio: true}\n",
+            "  take: {audio: true}\n  room: {preset: ROOM/001-plate, audio_input: take}\n",
+        );
+        let plan = compile(&yaml).expect("routing to an excluded source is diagnosed by exclusion");
+
+        assert!(
+            plan.excluded_instruments.contains("room"),
+            "an instrument without a played source is excluded from playback"
+        );
+    }
+}

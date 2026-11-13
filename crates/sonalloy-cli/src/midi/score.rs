@@ -19,7 +19,7 @@ pub(crate) fn export_score(
         )]);
     }
     let mut diagnostics = Vec::new();
-    let conductor_pattern = &plan.parts[0].pattern;
+    let conductor_pattern = &plan.score.timeline;
     let conductor = build_track(
         conductor_events(conductor_pattern)?,
         0,
@@ -207,6 +207,44 @@ mod tests {
     use super::*;
     use crate::performance::InstrumentBindings;
     use serde_json::json;
+
+    #[test]
+    fn export_keeps_the_conductor_when_every_instrument_is_ignored() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("score.yaml");
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "meta":{"title":"Ignored","bpm":120,"meter":"4/4","tuning":"12edo","gate":1},
+                "form":[{"section":"a","bars":1,"tonic":"C"}],
+                "sections":{"a":{"lines":{"main":{"instrument":"part","melody":"theme"}}}},
+                "melodies":{"theme":["1 - - - | 3 - - - | 5 - - - | 1' - - -"]},
+                "instruments":{"part":{"source":{"vst3":{"plugin":"Surge XT"}}}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let plan =
+            crate::performance::load(&path, &InstrumentBindings::default(), 48_000, 257).unwrap();
+        assert!(plan.parts.is_empty());
+
+        let output = directory.path().join("ignored.mid");
+        let diagnostics = export_score(&output, &plan).expect("export keeps the timeline");
+        assert_eq!(diagnostics, [] as [Diagnostic; 0]);
+        let parsed = crate::midi::parse_midi(&output).expect("exported MIDI parses");
+        assert_eq!(
+            parsed
+                .events
+                .iter()
+                .filter(|event| matches!(
+                    event.kind,
+                    crate::midi::parse::RawMidiEventKind::NoteOn { .. }
+                ))
+                .count(),
+            0
+        );
+        assert_eq!(parsed.ticks_per_beat, plan.score.ticks_per_beat);
+    }
 
     #[test]
     fn identical_lane_controls_merge_once_and_conflicts_are_isolated_by_kind() {

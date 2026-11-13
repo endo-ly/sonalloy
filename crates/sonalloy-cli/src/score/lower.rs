@@ -152,6 +152,8 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
         fade_out_seconds: optional_number(meta, "fade_out_seconds", 0.0, "meta")?,
         timeline,
         part_windows,
+        extension_notices: Vec::new(),
+        excluded_instruments: std::collections::BTreeSet::new(),
     })
 }
 
