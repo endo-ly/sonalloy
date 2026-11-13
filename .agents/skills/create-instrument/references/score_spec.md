@@ -18,7 +18,7 @@
 10. [演奏イベント・マクロ・優先規則](#10-演奏イベントマクロ優先規則)
 11. [プリセット試聴・プレビュー・CLI境界](#11-プリセット試聴プレビューcli境界)
 12. [解析・診断](#12-解析診断)
-13. [Riffra の拡張](#13-riffra-の拡張)
+13. [既知の拡張](#13-既知の拡張)
 14. [フィールド契約・文法一覧](#14-フィールド契約文法一覧)
 
 ## 1. 目的と基本原則
@@ -52,7 +52,7 @@
 | `macros` | 再利用可能な、構造化された演出処理 | 任意 |
 | `instruments` | 識別子、プリセット参照、音量、音域、奏法とノリ | 必須 |
 | `transitions` / `notes` | 転調意図・制作ノート。再生に影響しない | 任意 |
-| `kits` / `lyrics` / `mix` | Riffra の拡張。Sonalloy では無視する（13章） | 任意 |
+| `kits` / `lyrics` / `mix` | 既知の拡張。Sonalloy では無視する（13章） | 任意 |
 
 `meta` は以下の定義を使う。
 
@@ -502,7 +502,7 @@ sections:
 
 ### 8.1 楽器の定義
 
-`instruments.<id>`は、`preset`、`definition`、`external: true`のうち**ちょうど1種類**を指定する。同時指定・省略をエラーとする。ただし Riffra の拡張（13章）だけを持つ楽器は省略として扱い、Sonalloy はその楽器を演奏しない。
+`instruments.<id>`は、`preset`、`definition`、`external: true`のうち**ちょうど1種類**を指定する。同時指定・省略をエラーとする。ただし既知の拡張（13章）だけを持つ楽器は省略として扱い、Sonalloy はその楽器を演奏しない。
 
 ```yaml
 instruments:
@@ -522,7 +522,7 @@ instruments:
 - `trigger_note_midi`：Drum/FXなど、音程を指定しない打撃・単発音を鳴らすMIDIノート（0～127）。打撃・単発音を生成する場合は必須であり、音源ごとに明示する。
 - `bass_floor_midi`/`bass_ceiling_midi`：`register: bass`の基準音を置く範囲（省略時28～39）。
 - `audio_input: <id>`：ほかの楽器のステレオ出力を音声入力として受ける。入力能力のある音源だけ許可。対象不存在、自己参照、循環、外部入力のチャンネル数不一致はエラー。音源から入力へ渡る音声にはその楽器のPart Gainを適用し、グローバルフェード・マスターを含めない。
-- `sound`：Riffra と共通の表示用の文字列。欲しい音を自然言語で書く。演奏に作用しない。
+- `sound`：表示用の文字列。欲しい音を自然言語で書く。演奏に作用しない。
 - 技術的な`*_midi`は演奏エンジンのMIDIノート配置用である。**メロディ・コードの音高を書くための第2記法とはしない。**
 
 ### 8.2 演奏Laneと追加ゲイン
@@ -656,9 +656,9 @@ form:
 2. **参照**：`form.section`、楽器ID、素材、`from`、`macro`、`definition`、`preset`、`audio_input`、`counter.follows`の存在と循環を検証する。`key`、`mode`、`chord_type`のような別名や自然言語の演奏指示は受理しない。楽器IDはStemのファイル名になるため、1〜64文字のASCII英数字・`.`・`_`・`-`で構成して英数字で始め、大文字小文字だけが異なるIDやWindowsの予約名（`con`など）はエラーとする。
 3. **診断**：診断は`path`（Score YAML上の階層）、`section`、`bar`/`step`、入力行/列、`actual`、`expected`を持ち、`warning`と`error`を区別する。Errorがあれば演奏を生成しない。無視した拡張は`SCORE_EXTENSION_IGNORED`の警告として1種類につき1件返す。
 
-## 13. Riffra の拡張
+## 13. 既知の拡張
 
-Riffra が曲の編集正本として持つ項目のうち、Sonalloy が解釈しない既知のキーとイベント種別は読み飛ばし、種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` 警告を返す。列挙にないキーとイベント種別はエラーとする。
+Sonalloy が解釈しない既知のキーとイベント種別は読み飛ばし、種類ごとに1回だけ `SCORE_EXTENSION_IGNORED` 警告を返す。列挙にないキーとイベント種別はエラーとする。
 
 - キー: `kits`、`lyrics`、`mix`、`instruments.<id>.source`、`instruments.<id>.effects`、`instruments.<id>.kit`、`instruments.<id>.audio`、`sections.<name>.audio_clips`、`sections.<name>.lines.<line>.lyrics`
 - イベント種別: `articulation`、`cc`、`breath`、`voice_dynamics`、`voice_style`
