@@ -809,3 +809,20 @@ fn assert_exported_tracks(smf: &Smf<'_>) {
         );
     }
 }
+
+#[test]
+fn text_inspection_reports_ignored_score_extensions() {
+    let preset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../presets")
+        .canonicalize()
+        .expect("preset root");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["score", "inspect"])
+        .arg(fixture_path("score-extensions.yaml"))
+        .arg("--preset-root")
+        .arg(&preset_root)
+        .assert()
+        .success()
+        .stderr(predicates::str::contains("ignoring Score extension"));
+}

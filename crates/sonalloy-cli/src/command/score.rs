@@ -147,6 +147,9 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 }
                 return Ok(summary(&plan));
             }
+            if !args.score.json {
+                print_warnings(&plan.diagnostics);
+            }
             Ok(
                 json!({"status":"ok","title":plan.score.title,"sections":plan.score.sections,"ticks_per_beat":plan.score.ticks_per_beat,"length_ticks":plan.length_ticks,"musical_duration_seconds":plan.musical_duration_seconds,"instruments":plan.score.instruments,"lanes":plan.score.lanes.iter().map(|lane|json!({"id":lane.id,"gain_db":lane.gain_db,"events":lane.pattern.events,"sources":lane.sources})).collect::<Vec<_>>(),"parts":plan.parts.iter().map(|part|json!({"id":part.definition.id,"lane_gains_db":part.render_lanes.iter().map(|lane|lane.gain_db).collect::<Vec<_>>(),"audio_input":part.definition.audio_input,"events":part.pattern.events,"summary":crate::performance::events::inspect(&part.pattern).expect("prepared events are valid"),"tempo_changes":part.pattern.tempo_changes,"time_signature_changes":part.pattern.time_signature_changes})).collect::<Vec<_>>(),"diagnostics":crate::output::diagnostic_values(&plan.diagnostics)}),
             )
