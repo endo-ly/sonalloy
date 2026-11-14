@@ -31,6 +31,7 @@ pub(crate) enum Extension {
     LineLyrics,
     Articulation,
     Cc,
+    CcAutomation,
     Breath,
     VoiceDynamics,
     VoiceStyle,
@@ -50,6 +51,7 @@ impl Extension {
             Self::LineLyrics => "line lyrics",
             Self::Articulation => "articulation event",
             Self::Cc => "cc event",
+            Self::CcAutomation => "cc automation event",
             Self::Breath => "breath event",
             Self::VoiceDynamics => "voice dynamics event",
             Self::VoiceStyle => "voice style event",
@@ -66,6 +68,31 @@ impl Extension {
             _ => None,
         }
     }
+}
+
+fn event_extension(event: &Value) -> Option<Extension> {
+    let kind = event.get("kind").and_then(Value::as_str)?;
+    if let Some(extension) = Extension::event(kind) {
+        return Some(extension);
+    }
+    if kind == "automation"
+        && event
+            .get("control")
+            .and_then(Value::as_str)
+            .and_then(cc_number)
+            .is_some()
+    {
+        return Some(Extension::CcAutomation);
+    }
+    None
+}
+
+fn cc_number(control: &str) -> Option<u8> {
+    let number = control.strip_prefix("cc:")?;
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    number.parse::<u8>().ok().filter(|number| *number <= 127)
 }
 
 /// One extension site that the analysis ignored.
@@ -615,11 +642,7 @@ fn collect_section_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
         }
         if let Some(events) = section.get("events").and_then(Value::as_array) {
             for (index, event) in events.iter().enumerate() {
-                if let Some(extension) = event
-                    .get("kind")
-                    .and_then(Value::as_str)
-                    .and_then(Extension::event)
-                {
+                if let Some(extension) = event_extension(event) {
                     push_site(
                         sites,
                         extension,
@@ -641,11 +664,7 @@ fn collect_macro_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
         return;
     };
     for (name, event) in macros {
-        if let Some(extension) = event
-            .get("kind")
-            .and_then(Value::as_str)
-            .and_then(Extension::event)
-        {
+        if let Some(extension) = event_extension(event) {
             push_site(
                 sites,
                 extension,
@@ -1366,10 +1385,12 @@ sections:
       main.1: {instrument: lead.v1, melody: theme, lyrics: [la]}
     events:
       - {kind: cc, instrument: lead.v1, number: 11, value: 64, at: {bar: 1, step: 1}}
+      - {kind: automation, instrument: lead.v1, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 2}, duration_steps: 1}
+      - {kind: automation, instrument: lead.v1, control: mod_wheel, from_value: 0, to_value: 1, at: {bar: 1, step: 3}, duration_steps: 1}
       # Extension payloads belong to the consuming tool; dummy values suffice.
-      - {kind: articulation, instrument: lead.v1, value: staccato, at: {bar: 1, step: 2}}
-      - {kind: voice_dynamics, instrument: lead.v1, value: 80, at: {bar: 1, step: 3}}
-      - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 4}}
+      - {kind: articulation, instrument: lead.v1, value: staccato, at: {bar: 1, step: 4}}
+      - {kind: voice_dynamics, instrument: lead.v1, value: 80, at: {bar: 1, step: 5}}
+      - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 6}}
 macros:
   fill.1: {kind: breath, instrument: lead.v1, at: {bar: 1, step: 1}}
 melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
@@ -1402,8 +1423,9 @@ instruments:
                 "sections.verse.1.lines.main.1.lyrics",
                 "sections.verse.1.events[0]",
                 "sections.verse.1.events[1]",
-                "sections.verse.1.events[2]",
                 "sections.verse.1.events[3]",
+                "sections.verse.1.events[4]",
+                "sections.verse.1.events[5]",
                 "macros.fill.1",
             ]
         );
@@ -1425,6 +1447,7 @@ instruments:
                 "section audio clips",
                 "line lyrics",
                 "cc event",
+                "cc automation event",
                 "articulation event",
                 "voice dynamics event",
                 "voice style event",
