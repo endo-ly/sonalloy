@@ -1353,9 +1353,12 @@ instruments:
     }
 
     #[test]
-    fn dotted_identifiers_remove_only_their_own_extension_sites() {
+    fn known_extensions_are_ignored_once_without_touching_dotted_identifiers() {
         let yaml = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
 form: [{section: verse.1, bars: 1, tonic: C}]
+kits: {drums: {source: {vst3: {plugin: Addictive Drums 2}}}}
+lyrics: {verse1: "la la la"}
+mix: {tracks: {lead: {output: rhythm}}}
 sections:
   verse.1:
     audio_clips: [{instrument: take, file: audio/take.wav, at: {bar: 1, step: 1}}]
@@ -1363,11 +1366,16 @@ sections:
       main.1: {instrument: lead.v1, melody: theme, lyrics: [la]}
     events:
       - {kind: cc, instrument: lead.v1, number: 11, value: 64, at: {bar: 1, step: 1}}
+      # Extension payloads belong to the consuming tool; dummy values suffice.
+      - {kind: articulation, instrument: lead.v1, value: staccato, at: {bar: 1, step: 2}}
+      - {kind: voice_dynamics, instrument: lead.v1, value: 80, at: {bar: 1, step: 3}}
+      - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 4}}
 macros:
   fill.1: {kind: breath, instrument: lead.v1, at: {bar: 1, step: 1}}
 melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
 instruments:
-  lead.v1: {preset: LEAD/001-analog-saw-lead, source: {vst3: {plugin: Surge XT}}}
+  lead.v1: {preset: LEAD/001-analog-saw-lead, source: {vst3: {plugin: Surge XT}}, effects: [{use: delay}], kit: drums}
+  take: {audio: true}
 "#;
         let plan = compile(yaml).expect("dotted identifiers keep their own fields");
 
@@ -1383,11 +1391,44 @@ instruments:
         assert_eq!(
             paths,
             [
+                "kits",
+                "lyrics",
+                "mix",
                 "instruments.lead.v1.source",
+                "instruments.lead.v1.effects",
+                "instruments.lead.v1.kit",
+                "instruments.take.audio",
                 "sections.verse.1.audio_clips",
                 "sections.verse.1.lines.main.1.lyrics",
                 "sections.verse.1.events[0]",
+                "sections.verse.1.events[1]",
+                "sections.verse.1.events[2]",
+                "sections.verse.1.events[3]",
                 "macros.fill.1",
+            ]
+        );
+        let labels = plan
+            .extension_notices
+            .iter()
+            .map(|notice| notice.extension.label())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            [
+                "kits",
+                "lyrics",
+                "mix",
+                "instrument source",
+                "instrument effects",
+                "instrument kit",
+                "instrument audio",
+                "section audio clips",
+                "line lyrics",
+                "cc event",
+                "articulation event",
+                "voice dynamics event",
+                "voice style event",
+                "breath event",
             ]
         );
     }
