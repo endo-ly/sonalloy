@@ -1372,6 +1372,42 @@ instruments:
     }
 
     #[test]
+    fn cc_automation_extension_keeps_notes_and_existing_controls() {
+        let yaml = r#"meta: {title: Controls, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections:
+  verse:
+    lines:
+      main: {instrument: lead, melody: theme}
+    events:
+      - {kind: automation, instrument: lead, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
+      - {kind: automation, instrument: lead, control: mod_wheel, from_value: 0, to_value: 1, at: {bar: 1, step: 5}, duration_steps: 1}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+"#;
+        let plan = compile(yaml).expect("cc automation is a known extension");
+
+        assert_eq!(
+            plan.extension_notices
+                .iter()
+                .map(|notice| notice.extension.label())
+                .collect::<Vec<_>>(),
+            ["cc automation event"]
+        );
+        let events = &plan.lanes[0].pattern.events;
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::ModWheel { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::Note { .. }))
+        );
+    }
+
+    #[test]
     fn known_extensions_are_ignored_once_without_touching_dotted_identifiers() {
         let yaml = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
 form: [{section: verse.1, bars: 1, tonic: C}]
@@ -1393,6 +1429,7 @@ sections:
       - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 6}}
 macros:
   fill.1: {kind: breath, instrument: lead.v1, at: {bar: 1, step: 1}}
+  cc.fill: {kind: automation, instrument: lead.v1, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
 melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
 instruments:
   lead.v1: {preset: LEAD/001-analog-saw-lead, source: {vst3: {plugin: Surge XT}}, effects: [{use: delay}], kit: drums}
