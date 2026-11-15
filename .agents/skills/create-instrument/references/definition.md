@@ -60,7 +60,7 @@
 
 ## Metadata
 
-`metadata`は音源の名前と説明に加えて、Libraryで検索・分類・試聴するための情報を持ちます。`category`、`tags`、`recommended_range`は一般のDefinitionでは省略できます。Built-in Presetでは3項目をすべて設定します。
+`metadata`は音源の名前と説明に加えて、Libraryで検索・分類するための情報を持ちます。`category`、`tags`、`recommended_range`は一般のDefinitionでは省略できます。Built-in Presetでは3項目をすべて設定します。
 
 | Field | 内容と制約 |
 |---|---|
@@ -71,7 +71,7 @@
 | `tags` | 検索用Tag。0〜12件。各Tagは前後に空白を持たない1〜32文字で、制御文字を含めず、ASCIIの大文字・小文字を区別した重複を持ちません |
 | `recommended_range` | 実用的な音域。`min_midi` / `max_midi`を0〜127で指定し、最小値を最大値以下にします |
 
-短いブラウザ試聴の演奏は、プリセットと同じディレクトリの `preview.score.yaml` に記述します。音源メタデータは分類と音域を持ち、音符や演奏時間は[Score YAML](score_spec.md)から取得します。CLIはメタデータを使ってBuilt-in Presetを一覧・検索します。
+CLIはこれらの項目を使ってBuilt-in Presetを一覧・検索します。
 
 ## Performance
 

@@ -39,7 +39,18 @@ Scopeの分担：MacroとTransport Phase、Envelope FollowerはInstrument単位�
 
 Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar（-1〜1）、EnvelopeがUnipolar（0〜1）です。Depthの符号は方向を決め、Bipolar Sourceでは正負両方向へ作用します。
 
-`rate`の範囲は`per_second`が0.01〜40、`per_beat`が1/64〜16（Quarter-note基準）です。`per_beat`はTempo変更後も拍基準の速度を保ちます。
+`rate`の範囲は`per_second`が0.01〜40、`per_beat`が1/64〜16（Quarter-note基準）です。`per_beat`はTempo変更後も拍基準の速度を保ちます。定義したSourceはIDで`routes`から参照します。
+
+```json
+"modulation": {
+  "sources": [
+    { "id": "vibrato", "type": "lfo", "waveform": "sine", "rate": { "value": 0.5, "unit": "per_second" }, "phase": 0.0 }
+  ],
+  "routes": [
+    { "source": "vibrato", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.5, "unit": "octaves" }, "curve": "linear" }
+  ]
+}
+```
 
 ## Parameter ID
 
