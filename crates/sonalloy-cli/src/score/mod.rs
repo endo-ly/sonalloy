@@ -546,7 +546,7 @@ fn collect_extension_sites(document: &mut Value, sites: &mut Vec<ExtensionSite>)
     collect_section_media_sites(document, sites);
     let macros = document.get("macros").cloned().unwrap_or(Value::Null);
     normalize_section_events(document, &macros, sites);
-    normalize_macros(document, &macros);
+    normalize_macros(document, &macros, sites);
 }
 
 fn push_site(sites: &mut Vec<ExtensionSite>, extension: Extension, parts: Vec<PathPart>) {
@@ -674,18 +674,26 @@ fn normalize_section_events(document: &mut Value, macros: &Value, sites: &mut Ve
     }
 }
 
-/// Inlines supported macro definitions and removes definitions that are extensions.
-fn normalize_macros(document: &mut Value, macros: &Value) {
+/// Inlines supported macro definitions and marks definitions that are extensions.
+fn normalize_macros(document: &mut Value, macros: &Value, sites: &mut Vec<ExtensionSite>) {
     let Some(macros_object) = document.get_mut("macros").and_then(Value::as_object_mut) else {
         return;
     };
     let mut normalized = serde_json::Map::new();
     for (name, event) in macros_object.iter() {
         match effective_event(macros, event) {
-            Some(effective) if event_extension(&effective).is_none() => {
-                normalized.insert(name.clone(), effective);
+            Some(effective) => {
+                if let Some(extension) = event_extension(&effective) {
+                    push_site(
+                        sites,
+                        extension,
+                        vec![PathPart::Key("macros".into()), PathPart::Key(name.clone())],
+                    );
+                    normalized.insert(name.clone(), event.clone());
+                } else {
+                    normalized.insert(name.clone(), effective);
+                }
             }
-            Some(_) => {}
             None => {
                 normalized.insert(name.clone(), event.clone());
             }
@@ -1475,6 +1483,7 @@ macros:
   expression: {kind: automation, instrument: lead, control: "cc:11", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
   alias: {macro: expression, control: mod_wheel, from_value: 0, to_value: 1}
   cc: {kind: cc, instrument: lead, number: 11, value: 64, at: {bar: 1, step: 5}}
+  cc_unused: {kind: cc, instrument: lead, number: 11, value: 32, at: {bar: 1, step: 7}}
 melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
 instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
 "#;
@@ -1501,6 +1510,45 @@ instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
                 .iter()
                 .any(|event| matches!(event, MusicalEvent::Note { .. }))
         );
+    }
+
+    #[test]
+    fn unused_extension_macros_are_reported_from_their_definitions() {
+        let yaml = r#"meta: {title: Unused macro, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: lead, melody: theme}}}}
+macros:
+  unused: {kind: automation, instrument: lead, control: "cc:11", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+"#;
+        let plan = compile(yaml).expect("unused extension macros are diagnosed");
+
+        assert_eq!(
+            plan.extension_notices
+                .iter()
+                .map(|notice| (notice.path.as_str(), notice.extension.label()))
+                .collect::<Vec<_>>(),
+            [("macros.unused", "cc automation event")]
+        );
+        assert!(plan.extension_notices[0].line > 0);
+        assert!(plan.extension_notices[0].column > 0);
+    }
+
+    #[test]
+    fn unused_macros_keep_invalid_references_as_errors() {
+        let yaml = r#"meta: {title: Invalid macro, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections: {verse: {lines: {main: {instrument: lead, melody: theme}}}}
+macros:
+  broken: {macro: missing}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+"#;
+        let error = compile(yaml).expect_err("invalid unused macros remain errors");
+
+        assert_eq!(error.path, "macros.broken");
+        assert!(error.message.contains("undefined macro"));
     }
 
     #[test]
