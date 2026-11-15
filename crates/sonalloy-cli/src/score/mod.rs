@@ -31,6 +31,7 @@ pub(crate) enum Extension {
     LineLyrics,
     Articulation,
     Cc,
+    CcAutomation,
     Breath,
     VoiceDynamics,
     VoiceStyle,
@@ -50,6 +51,7 @@ impl Extension {
             Self::LineLyrics => "line lyrics",
             Self::Articulation => "articulation event",
             Self::Cc => "cc event",
+            Self::CcAutomation => "cc automation event",
             Self::Breath => "breath event",
             Self::VoiceDynamics => "voice dynamics event",
             Self::VoiceStyle => "voice style event",
@@ -66,6 +68,31 @@ impl Extension {
             _ => None,
         }
     }
+}
+
+fn event_extension(event: &Value) -> Option<Extension> {
+    let kind = event.get("kind").and_then(Value::as_str)?;
+    if let Some(extension) = Extension::event(kind) {
+        return Some(extension);
+    }
+    if kind == "automation"
+        && event
+            .get("control")
+            .and_then(Value::as_str)
+            .and_then(cc_number)
+            .is_some()
+    {
+        return Some(Extension::CcAutomation);
+    }
+    None
+}
+
+fn cc_number(control: &str) -> Option<u8> {
+    let number = control.strip_prefix("cc:")?;
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    number.parse::<u8>().ok().filter(|number| *number <= 127)
 }
 
 /// One extension site that the analysis ignored.
@@ -512,14 +539,14 @@ enum PathPart {
 /// An extension site with its display path and removal path.
 type ExtensionSite = (Extension, String, Vec<PathPart>);
 
-/// Returns every extension site with its display and removal paths.
-fn extension_sites(document: &Value) -> Vec<ExtensionSite> {
-    let mut sites = Vec::new();
-    collect_top_level_sites(document, &mut sites);
-    collect_instrument_sites(document, &mut sites);
-    collect_section_sites(document, &mut sites);
-    collect_macro_sites(document, &mut sites);
-    sites
+/// Collects extension sites and normalizes macro calls against their effective events.
+fn collect_extension_sites(document: &mut Value, sites: &mut Vec<ExtensionSite>) {
+    collect_top_level_sites(document, sites);
+    collect_instrument_sites(document, sites);
+    collect_section_media_sites(document, sites);
+    let macros = document.get("macros").cloned().unwrap_or(Value::Null);
+    normalize_section_events(document, &macros, sites);
+    normalize_macros(document, &macros);
 }
 
 fn push_site(sites: &mut Vec<ExtensionSite>, extension: Extension, parts: Vec<PathPart>) {
@@ -580,7 +607,7 @@ fn collect_instrument_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
     }
 }
 
-fn collect_section_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
+fn collect_section_media_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
     let Some(sections) = document.get("sections").and_then(Value::as_object) else {
         return;
     };
@@ -613,46 +640,89 @@ fn collect_section_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
                 }
             }
         }
-        if let Some(events) = section.get("events").and_then(Value::as_array) {
-            for (index, event) in events.iter().enumerate() {
-                if let Some(extension) = event
-                    .get("kind")
-                    .and_then(Value::as_str)
-                    .and_then(Extension::event)
-                {
-                    push_site(
-                        sites,
-                        extension,
-                        vec![
-                            PathPart::Key("sections".into()),
-                            PathPart::Key(name.clone()),
-                            PathPart::Key("events".into()),
-                            PathPart::Index(index),
-                        ],
-                    );
-                }
+    }
+}
+
+/// Replaces supported macro calls with their effective events and marks extension calls.
+fn normalize_section_events(document: &mut Value, macros: &Value, sites: &mut Vec<ExtensionSite>) {
+    let Some(sections) = document.get_mut("sections").and_then(Value::as_object_mut) else {
+        return;
+    };
+    for (name, section) in sections {
+        let Some(events) = section.get_mut("events").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for (index, event) in events.iter_mut().enumerate() {
+            let Some(effective) = effective_event(macros, event) else {
+                continue;
+            };
+            if let Some(extension) = event_extension(&effective) {
+                push_site(
+                    sites,
+                    extension,
+                    vec![
+                        PathPart::Key("sections".into()),
+                        PathPart::Key(name.clone()),
+                        PathPart::Key("events".into()),
+                        PathPart::Index(index),
+                    ],
+                );
+            } else if event.get("macro").is_some() {
+                *event = effective;
             }
         }
     }
 }
 
-fn collect_macro_sites(document: &Value, sites: &mut Vec<ExtensionSite>) {
-    let Some(macros) = document.get("macros").and_then(Value::as_object) else {
+/// Inlines supported macro definitions and removes definitions that are extensions.
+fn normalize_macros(document: &mut Value, macros: &Value) {
+    let Some(macros_object) = document.get_mut("macros").and_then(Value::as_object_mut) else {
         return;
     };
-    for (name, event) in macros {
-        if let Some(extension) = event
-            .get("kind")
-            .and_then(Value::as_str)
-            .and_then(Extension::event)
-        {
-            push_site(
-                sites,
-                extension,
-                vec![PathPart::Key("macros".into()), PathPart::Key(name.clone())],
-            );
+    let mut normalized = serde_json::Map::new();
+    for (name, event) in macros_object.iter() {
+        match effective_event(macros, event) {
+            Some(effective) if event_extension(&effective).is_none() => {
+                normalized.insert(name.clone(), effective);
+            }
+            Some(_) => {}
+            None => {
+                normalized.insert(name.clone(), event.clone());
+            }
         }
     }
+    *macros_object = normalized;
+}
+
+/// Resolves a macro call and its field overrides without modifying the document.
+///
+/// Returns `None` for a malformed, undefined, or cyclic call so normal validation can report it.
+fn effective_event(macros: &Value, event: &Value) -> Option<Value> {
+    fn resolve(macros: &Value, event: &Value, stack: &mut Vec<String>) -> Option<Value> {
+        let Some(name) = event.get("macro") else {
+            return Some(event.clone());
+        };
+        let name = name.as_str()?;
+        if stack.iter().any(|active| active == name) {
+            return None;
+        }
+        let base = macros.get(name)?;
+        stack.push(name.to_owned());
+        let mut result = resolve(macros, base, stack)?;
+        stack.pop();
+        let fields = event.as_object()?;
+        if fields.len() > 1 {
+            let result = result.as_object_mut()?;
+            for (key, value) in fields {
+                if key != "macro" {
+                    result.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        Some(result)
+    }
+
+    resolve(macros, event, &mut Vec::new())
 }
 
 /// Returns the instruments whose built-in source is supplied by an extension.
@@ -672,7 +742,8 @@ fn source_less_instruments(document: &Value) -> BTreeSet<String> {
 
 /// Removes every extension site and reports each kind once.
 fn ignore_extensions(document: &mut Value, source: &Source) -> Vec<ExtensionNotice> {
-    let sites = extension_sites(document);
+    let mut sites = Vec::new();
+    collect_extension_sites(document, &mut sites);
     let mut seen = BTreeSet::new();
     let mut notices = Vec::new();
     for (extension, path, _) in &sites {
@@ -1353,6 +1424,86 @@ instruments:
     }
 
     #[test]
+    fn cc_automation_extension_keeps_notes_and_existing_controls() {
+        let yaml = r#"meta: {title: Controls, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections:
+  verse:
+    lines:
+      main: {instrument: lead, melody: theme}
+    events:
+      - {kind: automation, instrument: lead, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
+      - {kind: automation, instrument: lead, control: mod_wheel, from_value: 0, to_value: 1, at: {bar: 1, step: 5}, duration_steps: 1}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+"#;
+        let plan = compile(yaml).expect("cc automation is a known extension");
+
+        assert_eq!(
+            plan.extension_notices
+                .iter()
+                .map(|notice| notice.extension.label())
+                .collect::<Vec<_>>(),
+            ["cc automation event"]
+        );
+        let events = &plan.lanes[0].pattern.events;
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::ModWheel { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::Note { .. }))
+        );
+    }
+
+    #[test]
+    fn macro_calls_are_ignored_from_their_effective_events_and_overrides() {
+        let yaml = r#"meta: {title: Macro controls, bpm: 120, meter: 4/4, tuning: 12edo}
+form: [{section: verse, bars: 1, tonic: C}]
+sections:
+  verse:
+    lines:
+      main: {instrument: lead, melody: theme}
+    events:
+      - {macro: expression}
+      - {macro: alias}
+      - {macro: cc}
+macros:
+  expression: {kind: automation, instrument: lead, control: "cc:11", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
+  alias: {macro: expression, control: mod_wheel, from_value: 0, to_value: 1}
+  cc: {kind: cc, instrument: lead, number: 11, value: 64, at: {bar: 1, step: 5}}
+melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
+instruments: {lead: {preset: LEAD/001-analog-saw-lead}}
+"#;
+        let plan = compile(yaml).expect("macro extensions are resolved at their call sites");
+
+        assert_eq!(
+            plan.extension_notices
+                .iter()
+                .map(|notice| (notice.path.as_str(), notice.extension.label()))
+                .collect::<Vec<_>>(),
+            [
+                ("sections.verse.events[0]", "cc automation event"),
+                ("sections.verse.events[2]", "cc event"),
+            ]
+        );
+        let events = &plan.lanes[0].pattern.events;
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::ModWheel { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, MusicalEvent::Note { .. }))
+        );
+    }
+
+    #[test]
     fn known_extensions_are_ignored_once_without_touching_dotted_identifiers() {
         let yaml = r#"meta: {title: Test, bpm: 120, meter: 4/4, tuning: 12edo}
 form: [{section: verse.1, bars: 1, tonic: C}]
@@ -1366,12 +1517,16 @@ sections:
       main.1: {instrument: lead.v1, melody: theme, lyrics: [la]}
     events:
       - {kind: cc, instrument: lead.v1, number: 11, value: 64, at: {bar: 1, step: 1}}
+      - {kind: automation, instrument: lead.v1, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 2}, duration_steps: 1}
+      - {kind: automation, instrument: lead.v1, control: mod_wheel, from_value: 0, to_value: 1, at: {bar: 1, step: 3}, duration_steps: 1}
       # Extension payloads belong to the consuming tool; dummy values suffice.
-      - {kind: articulation, instrument: lead.v1, value: staccato, at: {bar: 1, step: 2}}
-      - {kind: voice_dynamics, instrument: lead.v1, value: 80, at: {bar: 1, step: 3}}
-      - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 4}}
+      - {kind: articulation, instrument: lead.v1, value: staccato, at: {bar: 1, step: 4}}
+      - {kind: voice_dynamics, instrument: lead.v1, value: 80, at: {bar: 1, step: 5}}
+      - {kind: voice_style, instrument: lead.v1, value: whisper, at: {bar: 1, step: 6}}
+      - {macro: fill.1}
 macros:
   fill.1: {kind: breath, instrument: lead.v1, at: {bar: 1, step: 1}}
+  cc.fill: {kind: automation, instrument: lead.v1, control: "cc:74", from_value: 0, to_value: 127, at: {bar: 1, step: 1}, duration_steps: 1}
 melodies: {theme: ["1 - - - | 3 - - - | 5 - - - | 1' - - -"]}
 instruments:
   lead.v1: {preset: LEAD/001-analog-saw-lead, source: {vst3: {plugin: Surge XT}}, effects: [{use: delay}], kit: drums}
@@ -1402,9 +1557,10 @@ instruments:
                 "sections.verse.1.lines.main.1.lyrics",
                 "sections.verse.1.events[0]",
                 "sections.verse.1.events[1]",
-                "sections.verse.1.events[2]",
                 "sections.verse.1.events[3]",
-                "macros.fill.1",
+                "sections.verse.1.events[4]",
+                "sections.verse.1.events[5]",
+                "sections.verse.1.events[6]",
             ]
         );
         let labels = plan
@@ -1425,6 +1581,7 @@ instruments:
                 "section audio clips",
                 "line lyrics",
                 "cc event",
+                "cc automation event",
                 "articulation event",
                 "voice dynamics event",
                 "voice style event",

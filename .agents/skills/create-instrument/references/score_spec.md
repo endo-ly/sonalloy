@@ -662,6 +662,7 @@ Score には、Sonalloy 以外のツールが独自に使う項目が含まれ�
 
 - キー: `kits`、`lyrics`、`mix`、`instruments.<id>.source`、`instruments.<id>.effects`、`instruments.<id>.kit`、`instruments.<id>.audio`、`sections.<name>.audio_clips`、`sections.<name>.lines.<line>.lyrics`
 - イベント種別: `articulation`、`cc`、`breath`、`voice_dynamics`、`voice_style`
+- `automation.control` の `cc:N`（Nは0～127の10進整数）。`mod_wheel`・`aftertouch`・`pitch_bend` は従来どおり演奏に使う
 
 読み飛ばした項目の内部は検証しない。`source` だけ、または `audio: true` だけを持つ楽器は音楽構造だけを残して演奏対象から外し、その `audio_input` の参照元も外す。`instruments.<id>.sound` と `sections.<name>.notes` は読み飛ばしの対象ではなく、表示用の文字列として検証する。
 
