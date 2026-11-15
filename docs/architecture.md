@@ -9,7 +9,6 @@
 | 実行時の動作（処理契約、ライフサイクル、エラー時の扱い） | `docs/runtime-processing.md` |
 | CLIの使い方・Option・Exit Code | create-instrument Skillの`references/cli.md` |
 | 音源定義（JSON）の形式と制約 | create-instrument Skillのリファレンス（`.agents/skills/create-instrument/references/`） |
-| テストと試聴の手順 | `docs/testing-and-sound-review.md` |
 
 ## クレート構成
 

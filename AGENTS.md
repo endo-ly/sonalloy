@@ -23,6 +23,7 @@
 - Test: 
   - AAA パターンで読みやすく
   - テスト観点は最小に。重複した観点を無駄に増やさない。追加する場合は既存ケースの追加でできないか確認する
+  - 配置は Module の内部契約が実装と同じ`src/`のUnit Test、CrateのPublic API経路がそのCrateの`tests/`のIntegration Test。Workspace直下には置かない。複数Testで共有する期待値と入力は`testdata/`で管理する（詳細は`testdata/README.md`）
 - その他ルール
   - Logging: `tracing` を使用、機密情報禁止
   - Error: `thiserror` で構造化、`Display` は lower-case
