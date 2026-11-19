@@ -94,7 +94,9 @@ CLIはこれらの項目を使ってBuilt-in Presetを一覧・検索します�
 
 ### Monophonic
 
-常に1 Voiceを使い、Held NoteはLast-note priorityで切り替えます。`legato: true`では接続したNote OnでEnvelopeとGeneratorを再Triggerせず、`portamento`があれば音程だけを指定秒数で滑らかに移動します。`legato: false`ではNote Onごとに再Triggerします。
+常に1 Voiceを使い、押下中のNoteは最後に押したものを優先します。`legato: true`では前のNoteを押したまま次のNote Onを送るとEnvelopeとGeneratorを再Triggerせず、`legato: false`では再Triggerします。
+
+`portamento`は、前のNoteを押したまま次を鳴らすときと、優先中のNoteを離して別の押下中Noteへ戻るときに適用されます。`legato: false`でも適用されます。譜面ではNoteの発音区間を重ねます。前のNoteを離してから次を鳴らす場合は、ReleaseやSustainの余韻が残っていてもグライドしません。
 
 ```json
 "performance": {
