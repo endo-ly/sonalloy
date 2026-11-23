@@ -4,30 +4,13 @@
 
 仕様対象は12平均律の楽譜と、その演奏への一意な展開。音源そのものの `definition.json` は別の正本であり、本仕様の対象外。
 
-## 目次
-
-1. [目的と基本原則](#1-目的と基本原則)
-2. [ファイル構造](#2-ファイル構造)
-3. [音高とスケール](#3-音高とスケール)
-4. [時間とパターン](#4-時間とパターン)
-5. [コードと伴奏](#5-コードと伴奏)
-6. [素材の参照・反復・変奏](#6-素材の参照反復変奏)
-7. [セクションの構成と配置](#7-セクションの構成と配置)
-8. [音源参照・演奏データ境界](#8-音源参照演奏データ境界)
-9. [詳細時間・端数小節](#9-詳細時間端数小節)
-10. [演奏イベント・マクロ・優先規則](#10-演奏イベントマクロ優先規則)
-11. [プリセット試聴・プレビュー](#11-プリセット試聴プレビュー)
-12. [解析・診断](#12-解析診断)
-13. [Sonalloy が解釈しない項目](#13-sonalloy-が解釈しない項目)
-14. [フィールド契約・文法一覧](#14-フィールド契約文法一覧)
-
 ## 1. 目的と基本原則
 
-1つのYAMLファイルで**曲の構成、転調、コード進行、旋律、各楽器の役割、演奏の表情**を俯瞰・編集する。Sonalloyのデモ楽曲とプリセット試奏における楽譜正本であり、メモリ内の演奏計画へ直接展開して演奏・書き出しを行う。文法と演奏意味論は各章で規定し、その前提となる設計方針は次とする。
+1つのYAMLファイルで**曲の構成、転調、コード進行、旋律、各楽器の役割、演奏の表情**を記述する。
 
 - **「何を鳴らすか」と「どう鳴らすか」を分けて書く。** 音高・リズムはトークン列に、強弱の流れ・奏法の効き方・ノリ・声部配置は構造化されたフィールドとイベントに記述する。
 - **自動で決まる部分は決定的にし、明示した指定が常に勝つ。**
-- **意味を推測して実行しない。** 未定義の語句、欠落した参照、矛盾した編集、自然言語の演奏指示は検証エラーとする。`notes`、`role`、`mark`などの表示用項目は演奏に作用しない。
+- **意味を推測して実行しない。** 未定義の語句、欠落した参照、矛盾した編集、自然言語の演奏指示は検証エラーとする。`notes`、`role`、`mark`、`sound`などの表示用項目は演奏に作用しない。
 
 ## 2. ファイル構造
 
@@ -49,8 +32,6 @@
 | `transitions` / `notes` | 転調意図・制作ノート。再生に影響しない | 任意 |
 | `kits` / `lyrics` / `mix` | Sonalloy が解釈しない項目。無視する（13章） | 任意 |
 
-`meta` は以下の定義を使う。
-
 ```yaml
 meta:
   title: Example
@@ -59,13 +40,8 @@ meta:
   tuning: 12edo
   reference_octave: 4
   gate: 0.92
-  master:
-    target_lufs: -12
-    max_true_peak_db: -1
-    target_lra_lu: 7
+  master: {target_lufs: -12, max_true_peak_db: -1, target_lra_lu: 7}
 ```
-
-`meta` の各項目は以下のとおりとする。
 
 - `bpm`: 四分音符毎分
 - `reference_octave`: 音符 `1` が属するオクターブ（C4＝MIDIノート60）
@@ -75,10 +51,10 @@ meta:
 
 `form` の各項目は `{section, bars, tonic}` を必須とし、必要なら`scale`、`bpm`、`meter`、`last_bar_quarters`、`swing`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。
 
-- `section`: `sections` のキー。同名の `section` が複数回出現する場合は同じ演奏定義を再利用し、各出現で異なる転調が可能だが、各出現の`bars`と、そのセクションが参照する素材長が一致するかを検証する
-- `bars`: 正の整数。最後の端数小節も1小節として数える
+- `section`: `sections` のキー。同名の `section` が複数回出現する場合は同じ演奏定義を再利用し、各出現で異なる転調が可能だが、各出現の`bars`と参照素材長の一致を検証する
+- `bars`: 正の整数（最後の端数小節も1小節として数える）
 - `tonic`: `C` / `F#` / `Bb` などの音名
-- `scale`: `ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録し、未登録名はエラーとする。省略した場合はスケール未指定として扱い、音符・コード・演奏イベントは変化しない
+- `scale`: 組込みスケール（下表）またはトップレベルの`scale_definitions`（名前→度数トークン配列）に登録した名前を指定する。未登録名はエラー。省略時はスケール未指定として扱い、音符・コード・演奏イベントは変化しない
 
 組込みスケールの構成音（音高決定には使わず、生成・分析の文脈に使用）：
 
@@ -97,103 +73,19 @@ meta:
 | `minor_pentatonic` | `1 b3 4 5 b7` |
 | `whole_tone` | `1 2 3 #4 #5 b7` |
 
-以下は本章以降の記法を組み合わせた完成例で、`from`継承、食いのコード、Override、スウィングを含む。ScoreはほかのScoreファイルを参照できず、1ファイルと本仕様だけで記述する。
-
-```yaml
-meta:
-  title: Example
-  bpm: 174
-  meter: 4/4
-  tuning: 12edo
-  reference_octave: 4
-  swing: {subdivision: 16, ratio: "27/50"}
-  master: {target_lufs: -12, max_true_peak_db: -1}
-form:
-  - {section: intro, bars: 4, tonic: F, scale: aeolian}
-  - {section: main, bars: 4, tonic: F, scale: aeolian}
-  - {section: main, bars: 4, tonic: F, scale: aeolian}
-  - {section: last, bars: 4, tonic: F, scale: aeolian}
-sections:
-  intro:
-    chords: ["1:m9", "b6:maj7", "4:m7", "5:7sus4 5:7(b9)"]
-    pad: {instrument: pad, pattern: hold}
-    drums: hats
-    velocity: 84
-    placements:
-      - {instrument: riser, degree: "1,", at: {bar: 3, step: 1}, duration_quarters: "8", velocity: 100}
-    events:
-      - {kind: dynamics, instrument: pad, at: {bar: 1, step: 1}, duration_quarters: "16", from: -30, to: 0}
-      - {kind: drum_roll, instrument: snare, bars: 1, early_hits_per_beat: 2, final_hits_per_beat: 4, last_bar_end_beat: 4, velocity_from: 40, velocity_to: 118}
-  main:
-    from: intro
-    chords: ["1:m9", "<b6:maj7", "4:m7", "5:7sus4 5:7(b9)"]
-    lines:
-      lead: {instrument: lead, melody: hook}
-      bass: {instrument: bass, melody: roll, register: bass, loop: true}
-    drums: break
-    velocity: 100
-    placements: []
-    events:
-      - {kind: hits, instruments: [crash, kick], at: {bar: 1, step: 1}, velocity: 120}
-  last:
-    from: main
-    chords: ["1:m9", "b6:maj7", "4:m7", "1:m9"]
-    lines:
-      lead: {instrument: lead, melody: hook_end}
-      bass: {instrument: bass, melody: roll, register: bass, loop: true}
-melodies:
-  hook:
-    - "5 . b3' . | 1':2 . 5 | b7 . 1'~ 2' | b3':2 .:2"
-    - "b6 . 1' . | [b3' 4' b3'] | 1':2 b6:2 | 5:2 .:2"
-    - ". . 4 b6 | 1':3 4'^ | b3':2 1' . | b6:2 4! ."
-    - "5 . 7 . | 2' . 4'@116:4 b3' . | 2':2 .:2"
-  hook_end:
-    from: hook
-    replace: {4: "1':6 .:10"}
-  roll:
-    relative_to: chord_bass
-    items:
-      - "1@116:2 . 1 | . . 1' . | . 1:2 b7, | 1 . b3 ."
-      - "1@116:2 . 1 | . . 1' . | . 1:2 b7, | 1 . 5, ."
-drums:
-  hats:
-    parts:
-      hat: "..x. | ..x. | ..x. | ..xo"
-  break:
-    from: hats
-    parts:
-      kick:
-        - "X... | .... | ..X. | ...."
-        - "X... | .... | ..X. | .X.."
-      snare: ".... | X..o | .... | X..."
-    overrides:
-      - {when: {bars: [last]}, parts: {snare: ".... | X..o | ..o. | XoXx"}}
-instruments:
-  kick: {preset: DRUM/001-hard-punch-kick, gain_db: -6, trigger_note_midi: 38}
-  snare: {preset: DRUM/003-tone-snare, gain_db: -3, trigger_note_midi: 38, timing_offset_steps: "1/8"}
-  hat: {preset: DRUM/019-needle-closed-hat, gain_db: -6, pan: 0.2, trigger_note_midi: 42}
-  crash: {preset: DRUM/008-wide-wash-crash, gain_db: -10, trigger_note_midi: 49}
-  riser: {preset: FX/001-noise-riser, gain_db: -12}
-  bass: {preset: BASS/007-reese-bass, gain_db: -4, swing: {subdivision: 16, ratio: "1/2"}}
-  pad: {preset: PAD/001-warm-analog-pad, gain_db: -10, voicing_floor_midi: 53, voicing_ceiling_midi: 77}
-  lead: {preset: PLUCK/002-fm-pluck, gain_db: -4, gate: 0.6, articulations: {staccato: {gate: "1/3"}}}
-```
+ScoreはほかのScoreファイルを参照できず、1ファイルと本仕様だけで記述する。
 
 ## 3. 音高とスケール
 
 ### 3.1 度数の意味
 
-`1`は`tonic`、`2`は長2度、`3`は長3度、`4`は完全4度、`5`は完全5度、`6`は長6度、`7`は長7度。12平均律では、主音からの半音数は順に **0、2、4、5、7、9、11**。
+`1`〜`7`は長音階の各度数を表し、12平均律では主音からの半音数は順に **0、2、4、5、7、9、11**。
 
 | 記法 | 主音Cでの実音 | 定義 |
 |---|---|---|
 | `1` | C | 基準オクターブの主音 |
 | `b2` | Db | 短2度 |
 | `#1` | C# | 増1度 |
-| `b3` | Eb | 短3度 |
-| `#4` | F# | 増4度 |
-| `b6` | Ab | 短6度 |
-| `b7` | Bb | 短7度 |
 | `1'` | C（1オクターブ上） | `reference_octave` + 1 |
 | `7,` | B（1オクターブ下） | `reference_octave` − 1 |
 
@@ -203,13 +95,11 @@ instruments:
 - `bb` / `##` はそれぞれ2半音変更。音符・コードで同じ半音計算を使う
 - `#1` と `b2` は12平均律では同じ高さだが、解析結果には元の音程綴りを保持する。出力MIDIは音高だけを保持する
 
-`tonic: A, scale: aeolian`でもA＝`1`、C＝`b3`、F＝`b6`、G＝`b7`。AドリアンならF#＝`6`。**実音を決めるのは基準音と音符トークン**であり、`scale`は作曲判断や表示・分析の参考とする。スケールに含まれない度数もそのまま発音する。
+**実音を決めるのは基準音と音符トークン**であり、`scale`に関わらずスケールに含まれない度数もそのまま発音する。
 
 ### 3.2 音域
 
-`reference_octave: 4` の場合、セクション`tonic: Eb`では `1`＝Eb4（MIDI63）、`7,`＝D4（MIDI62）、`1'`＝Eb5（MIDI75）。`tonic: A`なら `1`＝A4（MIDI69）。ベースなどの低音域は、オクターブ記号を重ねる代わりに旋律パートの`register: bass`（3.3）で配置し、それ以外の音域調整は`transpose`（半音単位）で行う。
-
-`voicing_floor_midi` / `voicing_ceiling_midi` は和音の配置に使う**技術的な範囲**であり、旋律の音符記法ではない。コード構成音は度数から決め、その音域配置だけをMIDIノート番号で指定する。
+ベースなどの低音域は、オクターブ記号を重ねる代わりに`register: bass`（3.3）で配置し、それ以外の音域調整は`transpose`（半音単位）で行う。`voicing_floor_midi` / `voicing_ceiling_midi` は和音配置用の技術的範囲（MIDIノート番号）であり、旋律の音符記法ではない。
 
 ### 3.3 基準音・音域の選択・主音の上書き
 
@@ -264,11 +154,7 @@ instruments:
 melodies:
   hook:
     - "3:2 2 3 | -:2 5:2 | 4:3 2 | 2:2 .:2"
-  hook_cells:
-    - "5@110:3 2:3 3:3 .:3 | 6@112:3 3:3 5:3 .:3 | 7@114:3 3:3 5:3 .:3 | 1'@116:3 5:3 3:3 .:3"
 ```
-
-`hook_cells`は3拍のまとまりを4回続けた3小節の要素であり、小節線をまたいだまとまりがそのまま見える。
 
 トークンは次の順に並べる（空白なし）：
 
@@ -322,14 +208,10 @@ instruments:
 ```yaml
 drums:
   four:
-    parts:
-      kick: "X... | X... | X... | X..."
-      hat:  "XxXx | XxXx | XxXx | XxXx"
+    parts: {kick: "X... | X... | X... | X...", hat: "XxXx | XxXx | XxXx | XxXx"}
   phrase:
     parts:
-      kick:
-        - "X... | ..X. | X... | ...."
-        - "X... | ..X. | X.X. | ..X."
+      kick: ["X... | ..X. | X... | ....", "X... | ..X. | X.X. | ..X."]
 ```
 
 ドラム1マスは`.`（休み）、`o`（弱）、`x`（通常）、`X`（アクセント）で、基本Velocityは`o=64`、`x=96`、`X=120`、発音長は1グリッドマス。`[oooxxx]`なら1区間を6等分し、各文字で同じ長さの音を発音する。音の種類は`parts`のキーが参照する音源で指定し、ドラム以外のメロディ・コード伴奏のVelocityとは独立する。
@@ -411,7 +293,7 @@ drums:
 
 `1:(1,b3,5,b7,#11)`は構成音の直接指定。括弧内はコードルート基準の1～13度と、`b`・`#`・二重臨時記号を使う。基本コード名と同じボイシング指定を利用できる。
 
-例：`tonic: Eb`で `5:7/7` はB♭7/D、`tonic: A`で `1:m` はAm、`tonic: C`で `#1:dim7` はC#dim7。`/`の後も**コードルートからの音程ではなくセクション主音からの度数**。コードのルートと構成音がスケール外でも許容する。
+`/`の後も**コードルートからの音程ではなくセクション主音からの度数**（例：`tonic: Eb`で`5:7/7`はB♭7/D）。コードのルートと構成音がスケール外でも許容する。
 
 `chords`の各要素は1小節を表し、1小節のコードが1個なら全小節、2個なら前後半の同じ長さで割り当てる。より細かい和声変化はセクション内`chord_changes: [{at: ..., chord: ...}]`を用いる（時刻の競合はエラー）。
 
@@ -460,19 +342,17 @@ drums:
 
 ```yaml
 melodies:
-  hook:                       # 要素のリスト
+  hook:
     - "5 . b3' . | 1':2 . 5 | b7 . 1'~ 2' | b3':2 .:2"
-  hook_end:                   # 継承と要素の置換
+  hook_end:
     from: hook
     replace: {4: "1':6 .:10"}
-  walk:                       # 属性を持つ素材
+  walk:
     relative_to: chord_bass
-    items:
-      - "1:4 3:4 5:4 c7:4"
+    items: ["1:4 3:4 5:4 c7:4"]
   verse:
     pickup_steps: 3
-    items:
-      - "5 6 7 || 1':4 3:4 5:8"
+    items: ["5 6 7 || 1':4 3:4 5:8"]
 ```
 
 素材の葉は、要素のリスト、または`items`か`from`のどちらか一方を持つマッピングとする。どちらも持たないマッピングは名前空間として扱い、`melodies.answers.gap`のように`.`で区切った名前で参照する。マッピングの素材は次の属性を持てる。
@@ -540,7 +420,6 @@ sections:
       flute: {instrument: flute, melody: dream_flute}
       double: {instrument: synth, melody: dream_flute, transpose: 12, gain_db: -6}
       bass: {instrument: bass, melody: dream_bass, register: bass, loop: true}
-      chime: {instrument: chime, melody: chime, tonic: F}
 ```
 
 `lines`は名前付きの旋律パートのマップで、本数に制限はない。名前は`counter.follows`から参照する識別子であり、同じ楽器を複数のパートで使ってもよい。
@@ -631,9 +510,9 @@ time_changes:
 - 変化は1ステップ（16分音符）ごとの段階的なテンポ変更として展開し、WAV・MIDI・`inspect`で同じ段階的テンポを使う。区間nステップのうちk番目（0始まり）のテンポは「直前のテンポ＋（`bpm`−直前のテンポ）×（k＋1）/n」。
 - 変化区間の内部にほかのテンポ変更（`form`の`bpm`を含む）がある場合はエラー。
 
-**位置**：`at: {bar: 1, step: 1}`は、セクション内・1始まりであり、`step`は16分音符単位。4/4は1～16、6/8は1～12。`at: {bar: last, step: 1}`も許す。グリッドに乗らないイベントは`at: {bar: 1, offset_quarters: "1/3"}`を使う。`offset_quarters`はその小節頭からの0始まりの量。`step`と`offset_quarters`の併用は禁止。
+**位置**：`at: {bar: 1, step: 1}`はセクション内・1始まりであり、`step`は16分音符単位（4/4は1～16、6/8は1～12）。`at: {bar: last, step: 1}`も許す。グリッドに乗らないイベントは小節頭からの0始まり量`at: {bar: 1, offset_quarters: "1/3"}`を使う。`step`と`offset_quarters`の併用は禁止。
 
-**長さ**：`duration_steps`は16分音符数であり、正の整数・有限10進数・分数文字列を受理する。`duration_quarters`は四分音符数で、同じく正の有理数。両方の指定は禁止。パターンの`gate`が掛かるのは自動計算音価のみ。`placements`や明示ノートの`duration_*`にはGateを再適用しない。
+**長さ**：`duration_steps`（16分音符数）と`duration_quarters`（四分音符数）は正の整数・有限10進数・分数文字列を受理し、両方の指定は禁止。`gate`が掛かるのは自動計算音価のみであり、`placements`や明示ノートの`duration_*`には再適用しない。
 
 **比率の解析**：整数・有限小数・`p/q`は丸めずに分数として扱う。分母0と負の値はエラー。全イベントを整数Tickで表すPPQは自動で決まり、上限32767を超える細かい分数の組合せはエラーになる。
 
@@ -648,10 +527,8 @@ time_changes:
 
 ```yaml
 form:
-  - {section: fx_preview, bars: 8, last_bar_quarters: "2", tonic: C, scale: ionian}
+  - {section: fx_preview, bars: 8, last_bar_quarters: "2", tonic: C, scale: ionian} # 7.5小節
 ```
-
-これは4/4の通常7小節＋最後2四分音符＝7.5小節。
 
 ### 9.3 記法の単位と連符
 
